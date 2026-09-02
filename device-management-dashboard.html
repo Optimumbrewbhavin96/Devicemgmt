@@ -132,6 +132,16 @@
   #dmd .banner-error{background:var(--use-dim);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:12px}
   #dmd .banner-error.show{display:flex}
   #dmd .banner-error button{background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+
+  #dmd .modal-overlay{position:fixed;inset:0;background:rgba(10,12,14,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+  #dmd .modal-overlay.open{display:flex}
+  #dmd .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;width:100%;max-width:320px}
+  #dmd .modal-box h3{font-size:18px;color:var(--text);margin-bottom:4px}
+  #dmd .modal-box p{font-size:12px;color:var(--text-dim);margin:0 0 14px}
+  #dmd .modal-box input[type=text]{width:100%;margin-bottom:8px}
+  #dmd .modal-box .error{margin-bottom:6px}
+  #dmd .modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  #dmd .device-meta .used-by{color:var(--use)}
 </style>
 
 <div id="dmd">
@@ -200,11 +210,25 @@
   <div id="gridWrap">
     <div class="loading">Loading device bay...</div>
   </div>
+
+  <div class="modal-overlay" id="useModal">
+    <div class="modal-box">
+      <h3>Who's taking this device?</h3>
+      <p>Enter the QA name before marking it in use.</p>
+      <input type="text" id="useQaName" placeholder="Your name">
+      <div class="error" id="useModalError" style="display:none">Enter a name first.</div>
+      <div class="actions">
+        <button class="btn-ghost" id="useModalCancel" type="button">Cancel</button>
+        <button class="btn-primary" id="useModalConfirm" type="button">Mark in use</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 (function(){
   var STORAGE_KEY = 'devices';
+  var LOCAL_BACKUP_KEY = 'devices_local_backup';
   var devices = [];
   var statusFilter = 'all';
   var platformFilter = 'all';
@@ -216,6 +240,10 @@
   var syncStatus = document.getElementById('syncStatus');
   var syncText = document.getElementById('syncText');
   var errorBanner = document.getElementById('errorBanner');
+  var useModal = document.getElementById('useModal');
+  var useQaName = document.getElementById('useQaName');
+  var useModalError = document.getElementById('useModalError');
+  var pendingUseId = null;
 
   function uid(){ return 'd_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
@@ -252,11 +280,19 @@
 
   async function load(){
     setSync('saving', 'Loading');
+    var loadedShared = false;
     try{
       var res = await window.storage.get(STORAGE_KEY, true);
       devices = (res && res.value) ? JSON.parse(res.value) : [];
+      loadedShared = true;
     }catch(e){
-      devices = [];
+      console.error('Shared storage load failed, trying local backup', e);
+      try{
+        var localRes = await window.storage.get(LOCAL_BACKUP_KEY, false);
+        devices = (localRes && localRes.value) ? JSON.parse(localRes.value) : [];
+      }catch(e2){
+        devices = [];
+      }
     }
     var existingNames = devices.map(function(d){ return d.name.trim().toLowerCase(); });
     var added = false;
@@ -268,7 +304,7 @@
       }
     });
     render();
-    if(added){
+    if(added || !loadedShared){
       save();
     }else{
       setSync('ok', 'Synced');
@@ -290,13 +326,19 @@
         setSync('ok', 'Synced');
         return;
       }catch(e){
-        console.error('Storage error', e);
+        console.error('Shared storage set failed (attempt ' + attempt + ')', e);
         if(attempt < maxAttempts){
-          await new Promise(function(r){ setTimeout(r, 400 * attempt); });
-        }else{
-          setSync('error', 'Sync failed');
+          await new Promise(function(r){ setTimeout(r, 500 * attempt); });
         }
       }
+    }
+    // Shared sync exhausted its retries — keep the data safe locally so it isn't lost.
+    try{
+      await window.storage.set(LOCAL_BACKUP_KEY, snapshot, false);
+      setSync('error', 'Sync failed \u2014 saved locally');
+    }catch(e3){
+      console.error('Local backup save also failed', e3);
+      setSync('error', 'Sync failed');
     }
   }
 
@@ -319,7 +361,7 @@
           '<button class="remove-btn" data-remove="' + d.id + '" aria-label="Remove ' + esc(d.name) + '"><i class="ti ti-trash" aria-hidden="true"></i></button>' +
         '</div>' +
         '<div class="device-name">' + esc(d.name) + '</div>' +
-        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + '</div>' +
+        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + (!isFree && d.usedBy ? '<span class="used-by mono">by ' + esc(d.usedBy) + '</span>' : '') + '</div>' +
         '<button class="toggle-btn ' + (isFree?'mark-use':'mark-free') + '" data-toggle="' + d.id + '">' + (isFree ? 'Mark in use' : 'Mark free') + '</button>' +
       '</div>';
   }
@@ -376,10 +418,15 @@
       var id = toggleId.getAttribute('data-toggle');
       var dev = devices.find(function(x){return x.id===id});
       if(dev){
-        dev.status = dev.status === 'free' ? 'use' : 'free';
-        dev.updatedAt = Date.now();
-        render();
-        save();
+        if(dev.status === 'free'){
+          openUseModal(id);
+        }else{
+          dev.status = 'free';
+          dev.usedBy = '';
+          dev.updatedAt = Date.now();
+          render();
+          save();
+        }
       }
     }
     if(removeId){
@@ -391,6 +438,43 @@
         save();
       }
     }
+  });
+
+  function openUseModal(id){
+    pendingUseId = id;
+    useQaName.value = '';
+    useModalError.style.display = 'none';
+    useModal.classList.add('open');
+    useQaName.focus();
+  }
+  function closeUseModal(){
+    useModal.classList.remove('open');
+    pendingUseId = null;
+  }
+  document.getElementById('useModalCancel').addEventListener('click', closeUseModal);
+  document.getElementById('useModalConfirm').addEventListener('click', function(){
+    var name = useQaName.value.trim();
+    if(!name){
+      useModalError.style.display = 'block';
+      useQaName.focus();
+      return;
+    }
+    var dev = devices.find(function(x){return x.id===pendingUseId});
+    if(dev){
+      dev.status = 'use';
+      dev.usedBy = name;
+      dev.updatedAt = Date.now();
+      render();
+      save();
+    }
+    closeUseModal();
+  });
+  useQaName.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ document.getElementById('useModalConfirm').click(); }
+    if(e.key === 'Escape'){ closeUseModal(); }
+  });
+  useModal.addEventListener('click', function(e){
+    if(e.target === useModal){ closeUseModal(); }
   });
 
   document.getElementById('search').addEventListener('input', function(e){
