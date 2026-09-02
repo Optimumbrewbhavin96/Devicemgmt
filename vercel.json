@@ -1,5 +1,4 @@
 {
-  "routes": [
-    { "src": "/", "dest": "/Devicemgmt.html" }
-  ]
+  "cleanUrls": true,
+  "trailingSlash": false
 }

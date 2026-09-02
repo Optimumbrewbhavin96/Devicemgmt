@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Device Bay - QA Device Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root{
+    --bg:#191c1f;
+    --panel:#232830;
+    --panel-2:#2b313a;
+    --line:#39414c;
+    --line-soft:#2e343d;
+    --text:#eef0f2;
+    --text-dim:#9aa4b1;
+    --text-faint:#6a7380;
+    --free:#54c98a;
+    --free-dim:#1e3a2c;
+    --use:#e2895a;
+    --use-dim:#3d2a1e;
+    --danger:#e2685a;
+    --android:#8bd08a;
+    --ios:#9fb4e8;
+  }
+  *{box-sizing:border-box}
+  #dmd{
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 24px 40px;
+    border-radius:14px;
+    max-width:1020px;
+    margin:0 auto;
+  }
+  #dmd h1,#dmd h2,#dmd h3{font-family:'Barlow Condensed',sans-serif;letter-spacing:.02em;margin:0}
+  #dmd .mono{font-family:'IBM Plex Mono',monospace}
+  #dmd .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    margin:0 0 4px;
+  }
+  #dmd .titlebar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--line-soft)}
+  #dmd .titlebar h1{font-size:30px;font-weight:700;color:var(--text)}
+  #dmd .stats{display:flex;gap:10px}
+  #dmd .stat{background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:8px 16px;text-align:center;min-width:64px}
+  #dmd .stat b{display:block;font-size:20px;font-weight:600}
+  #dmd .stat span{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em}
+  #dmd .stat.free b{color:var(--free)}
+  #dmd .stat.use b{color:var(--use)}
+
+  #dmd .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  #dmd input[type=text],#dmd select{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:7px;
+    padding:9px 12px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  #dmd input[type=text]:focus,#dmd select:focus{outline:none;border-color:var(--text-dim)}
+  #dmd #search{flex:1;min-width:160px}
+  #dmd .chip{
+    background:transparent;border:1px solid var(--line);color:var(--text-dim);
+    padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  #dmd .chip.active{background:var(--panel-2);color:var(--text);border-color:var(--text-dim)}
+  #dmd .btn-add{
+    background:var(--text);color:var(--bg);border:none;border-radius:7px;
+    padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+    display:flex;align-items:center;gap:6px;
+  }
+  #dmd .btn-add:active{transform:scale(0.98)}
+  #dmd .platform-row{display:flex;gap:8px;margin-bottom:18px}
+
+  #dmd .add-panel{
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;
+    padding:16px;margin-bottom:18px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;
+  }
+  #dmd .add-panel.open{display:flex}
+  #dmd .field{display:flex;flex-direction:column;gap:5px}
+  #dmd .field label{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em}
+  #dmd .field input,#dmd .field select{width:170px}
+  #dmd .add-panel .actions{display:flex;gap:8px;margin-left:auto}
+  #dmd .btn-primary{background:var(--free);color:#0e1a14;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
+  #dmd .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--line);border-radius:7px;padding:9px 16px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
+  #dmd .error{font-size:12px;color:var(--danger);width:100%}
+
+  #dmd .group{margin-bottom:22px}
+  #dmd .group-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;color:var(--text-dim);font-size:13px;text-transform:uppercase;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace}
+  #dmd .group-head i{font-size:16px}
+  #dmd .group-head .count{color:var(--text-faint)}
+  #dmd .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+  #dmd .card{
+    position:relative;background:var(--panel);border:1px solid var(--line-soft);
+    border-radius:12px;padding:16px 16px 14px;
+  }
+  #dmd .card::before{
+    content:"";position:absolute;top:-8px;left:20px;width:16px;height:16px;
+    background:var(--bg);border:1px solid var(--line-soft);border-radius:50%;
+  }
+  #dmd .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+  #dmd .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  #dmd .dot.free{background:var(--free);box-shadow:0 0 0 3px var(--free-dim)}
+  #dmd .dot.use{background:var(--use);box-shadow:0 0 0 3px var(--use-dim)}
+  #dmd .status-tag{display:flex;align-items:center;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace}
+  #dmd .status-tag.free{color:var(--free)}
+  #dmd .status-tag.use{color:var(--use)}
+  #dmd .remove-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;line-height:1;padding:2px}
+  #dmd .remove-btn:hover{color:var(--danger)}
+  #dmd .device-name{font-size:16px;font-weight:600;margin-bottom:2px}
+  #dmd .device-meta{font-size:12px;color:var(--text-dim);margin-bottom:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #dmd .device-meta .tag{color:var(--text-faint)}
+  #dmd .toggle-btn{
+    width:100%;padding:9px 0;border-radius:7px;border:1px solid;font-size:13px;font-weight:600;
+    cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  #dmd .toggle-btn.mark-free{background:var(--free-dim);border-color:var(--free);color:var(--free)}
+  #dmd .toggle-btn.mark-use{background:var(--use-dim);border-color:var(--use);color:var(--use)}
+
+  #dmd .empty{text-align:center;padding:50px 20px;color:var(--text-faint)}
+  #dmd .empty h3{color:var(--text-dim);font-size:20px;margin-bottom:6px;font-weight:600}
+  #dmd .loading{text-align:center;padding:40px;color:var(--text-faint);font-size:13px}
+
+  #dmd .sync{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:6px}
+  #dmd .sync .sdot{width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
+  #dmd .sync.saving .sdot{background:var(--use)}
+  #dmd .sync.ok .sdot{background:var(--free)}
+  #dmd .sync.error{color:var(--danger)}
+  #dmd .sync.error .sdot{background:var(--danger)}
+  #dmd .sync button{background:none;border:none;color:var(--danger);text-decoration:underline;cursor:pointer;font-size:11px;font-family:inherit;padding:0}
+  #dmd .banner-error{background:var(--use-dim);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:12px}
+  #dmd .banner-error.show{display:flex}
+  #dmd .banner-error button{background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+</style>
+</head>
+<body>
+<div id="dmd">
+  <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">QA team device management dashboard: add devices, mark them free or in use, and remove them from the shared board.</h2>
+
+  <div class="titlebar">
+    <div>
+      <p class="eyebrow">QA team</p>
+      <h1>Device bay</h1>
+    </div>
+    <div>
+      <div class="stats">
+        <div class="stat"><b id="statTotal">0</b><span>Total</span></div>
+        <div class="stat free"><b id="statFree">0</b><span>Free</span></div>
+        <div class="stat use"><b id="statUse">0</b><span>In use</span></div>
+      </div>
+      <div class="sync" id="syncStatus"><span class="sdot"></span><span id="syncText">Loading</span></div>
+    </div>
+  </div>
+
+  <div class="banner-error" id="errorBanner">
+    <span>Some changes couldn't sync to the shared board. They're only saved on this device for now.</span>
+    <button id="retrySync" type="button">Retry</button>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search devices or tag id">
+    <button class="chip active" data-filter="all">All</button>
+    <button class="chip" data-filter="free">Free</button>
+    <button class="chip" data-filter="use">In use</button>
+    <button class="btn-add" id="openAdd" type="button"><i class="ti ti-plus" aria-hidden="true"></i>Add device</button>
+  </div>
+  <div class="platform-row">
+    <button class="chip active" data-platform="all">All platforms</button>
+    <button class="chip" data-platform="Android">Android</button>
+    <button class="chip" data-platform="iOS">iOS</button>
+  </div>
+
+  <div class="add-panel" id="addPanel">
+    <div class="field">
+      <label for="fName">Device name</label>
+      <input type="text" id="fName" placeholder="Pixel 8 Pro">
+    </div>
+    <div class="field">
+      <label for="fPlatform">Platform</label>
+      <select id="fPlatform">
+        <option>Android</option>
+        <option>iOS</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="fOs">OS version</label>
+      <input type="text" id="fOs" placeholder="OS-16">
+    </div>
+    <div class="field">
+      <label for="fTag">Asset tag (optional)</label>
+      <input type="text" id="fTag" placeholder="QA-014">
+    </div>
+    <div class="error" id="addError" style="display:none"></div>
+    <div class="actions">
+      <button class="btn-ghost" id="cancelAdd" type="button">Cancel</button>
+      <button class="btn-primary" id="submitAdd" type="button">Add to bay</button>
+    </div>
+  </div>
+
+  <div id="gridWrap">
+    <div class="loading">Loading device bay...</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var STORAGE_KEY = 'devices';
+  var devices = [];
+  var statusFilter = 'all';
+  var platformFilter = 'all';
+  var query = '';
+
+  var gridWrap = document.getElementById('gridWrap');
+  var addPanel = document.getElementById('addPanel');
+  var addError = document.getElementById('addError');
+  var syncStatus = document.getElementById('syncStatus');
+  var syncText = document.getElementById('syncText');
+  var errorBanner = document.getElementById('errorBanner');
+
+  function uid(){ return 'd_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function setSync(state, msg){
+    syncStatus.className = 'sync ' + state;
+    syncText.textContent = msg;
+    errorBanner.classList.toggle('show', state === 'error');
+  }
+
+  function esc(s){
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  var SEED_DEVICES = [
+    { name: 'Samsung M36', platform: 'Android', os: 'OS-16' },
+    { name: 'Lava LXX', platform: 'Android', os: 'OS-15' },
+    { name: 'Nokia 5.3', platform: 'Android', os: 'OS-12' },
+    { name: 'Lava LMX', platform: 'Android', os: 'OS-11' },
+    { name: 'Samsung A10', platform: 'Android', os: 'OS-11' },
+    { name: 'Samsung F02', platform: 'Android', os: 'OS-11' },
+    { name: 'Asus', platform: 'Android', os: 'OS-8' },
+    { name: 'Samsung J5', platform: 'Android', os: 'OS-8' },
+    { name: 'Oppo A11', platform: 'Android', os: 'OS-16' },
+    { name: 'Vivo T1X', platform: 'Android', os: 'OS-13' },
+    { name: 'iPhone 14', platform: 'iOS', os: 'OS-18' },
+    { name: 'iPhone 13', platform: 'iOS', os: 'OS-17' },
+    { name: 'iPhone 16e4', platform: 'iOS', os: 'OS-18.5' },
+    { name: 'iPhone 16e3', platform: 'iOS', os: 'OS-26' },
+    { name: 'iPhone 6S-1', platform: 'iOS', os: 'OS-15' },
+    { name: 'iPhone 6S-2', platform: 'iOS', os: 'OS-15' }
+  ];
+
+  async function load(){
+    setSync('saving', 'Loading');
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      devices = raw ? JSON.parse(raw) : [];
+    }catch(e){
+      devices = [];
+    }
+    var existingNames = devices.map(function(d){ return d.name.trim().toLowerCase(); });
+    var added = false;
+    SEED_DEVICES.forEach(function(sd){
+      if(existingNames.indexOf(sd.name.trim().toLowerCase()) === -1){
+        devices.push({ id: uid(), name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', updatedAt: Date.now() });
+        existingNames.push(sd.name.trim().toLowerCase());
+        added = true;
+      }
+    });
+    render();
+    if(added){
+      save();
+    }else{
+      setSync('ok', 'Synced');
+    }
+  }
+
+  var saveChain = Promise.resolve();
+  function save(){
+    saveChain = saveChain.then(function(){ return saveWithRetry(3); });
+    return saveChain;
+  }
+
+  async function saveWithRetry(maxAttempts){
+    var snapshot = JSON.stringify(devices);
+    setSync('saving', 'Saving');
+    try{
+      localStorage.setItem(STORAGE_KEY, snapshot);
+      setSync('ok', 'Synced');
+    }catch(e){
+      console.error('Storage error', e);
+      setSync('error', 'Sync failed');
+    }
+  }
+
+  document.getElementById('retrySync').addEventListener('click', function(){
+    save();
+  });
+
+  function updateStats(){
+    document.getElementById('statTotal').textContent = devices.length;
+    document.getElementById('statFree').textContent = devices.filter(function(d){return d.status==='free'}).length;
+    document.getElementById('statUse').textContent = devices.filter(function(d){return d.status==='use'}).length;
+  }
+
+  function cardHtml(d){
+    var isFree = d.status === 'free';
+    return '' +
+      '<div class="card" data-id="' + d.id + '">' +
+        '<div class="card-top">' +
+          '<div class="status-tag ' + (isFree?'free':'use') + '"><span class="dot ' + (isFree?'free':'use') + '"></span>' + (isFree?'Free':'In use') + '</div>' +
+          '<button class="remove-btn" data-remove="' + d.id + '" aria-label="Remove ' + esc(d.name) + '"><i class="ti ti-trash" aria-hidden="true"></i></button>' +
+        '</div>' +
+        '<div class="device-name">' + esc(d.name) + '</div>' +
+        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + '</div>' +
+        '<button class="toggle-btn ' + (isFree?'mark-use':'mark-free') + '" data-toggle="' + d.id + '">' + (isFree ? 'Mark in use' : 'Mark free') + '</button>' +
+      '</div>';
+  }
+
+  function render(){
+    updateStats();
+    var list = devices.filter(function(d){
+      if(statusFilter !== 'all' && d.status !== statusFilter) return false;
+      if(platformFilter !== 'all' && d.platform !== platformFilter) return false;
+      if(query){
+        var q = query.toLowerCase();
+        var hay = (d.name + ' ' + (d.platform||'') + ' ' + (d.os||'') + ' ' + (d.tag||'')).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    if(devices.length === 0){
+      gridWrap.innerHTML = '<div class="empty"><h3>The bay is empty</h3><p>Add your first device to start tracking it.</p></div>';
+      return;
+    }
+    if(list.length === 0){
+      gridWrap.innerHTML = '<div class="empty"><h3>No matches</h3><p>Try a different search or filter.</p></div>';
+      return;
+    }
+
+    var androidList = list.filter(function(d){ return d.platform === 'Android'; });
+    var iosList = list.filter(function(d){ return d.platform === 'iOS'; });
+    var otherList = list.filter(function(d){ return d.platform !== 'Android' && d.platform !== 'iOS'; });
+
+    var html = '';
+    if(androidList.length){
+      html += '<div class="group"><div class="group-head"><i class="ti ti-android" aria-hidden="true"></i>Android<span class="count">(' + androidList.length + ')</span></div><div class="grid">';
+      androidList.forEach(function(d){ html += cardHtml(d); });
+      html += '</div></div>';
+    }
+    if(iosList.length){
+      html += '<div class="group"><div class="group-head"><i class="ti ti-brand-apple" aria-hidden="true"></i>iOS<span class="count">(' + iosList.length + ')</span></div><div class="grid">';
+      iosList.forEach(function(d){ html += cardHtml(d); });
+      html += '</div></div>';
+    }
+    if(otherList.length){
+      html += '<div class="group"><div class="group-head"><i class="ti ti-device-mobile" aria-hidden="true"></i>Other<span class="count">(' + otherList.length + ')</span></div><div class="grid">';
+      otherList.forEach(function(d){ html += cardHtml(d); });
+      html += '</div></div>';
+    }
+    gridWrap.innerHTML = html;
+  }
+
+  gridWrap.addEventListener('click', function(e){
+    var toggleId = e.target.closest('[data-toggle]');
+    var removeId = e.target.closest('[data-remove]');
+    if(toggleId){
+      var id = toggleId.getAttribute('data-toggle');
+      var dev = devices.find(function(x){return x.id===id});
+      if(dev){
+        dev.status = dev.status === 'free' ? 'use' : 'free';
+        dev.updatedAt = Date.now();
+        render();
+        save();
+      }
+    }
+    if(removeId){
+      var rid = removeId.getAttribute('data-remove');
+      var dev2 = devices.find(function(x){return x.id===rid});
+      if(dev2 && confirm('Remove "' + dev2.name + '" from the device bay?')){
+        devices = devices.filter(function(x){return x.id!==rid});
+        render();
+        save();
+      }
+    }
+  });
+
+  document.getElementById('search').addEventListener('input', function(e){
+    query = e.target.value;
+    render();
+  });
+
+  document.querySelectorAll('.toolbar .chip').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      document.querySelectorAll('.toolbar .chip').forEach(function(c){c.classList.remove('active')});
+      chip.classList.add('active');
+      statusFilter = chip.getAttribute('data-filter');
+      render();
+    });
+  });
+
+  document.querySelectorAll('.platform-row .chip').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      document.querySelectorAll('.platform-row .chip').forEach(function(c){c.classList.remove('active')});
+      chip.classList.add('active');
+      platformFilter = chip.getAttribute('data-platform');
+      render();
+    });
+  });
+
+  document.getElementById('openAdd').addEventListener('click', function(){
+    addPanel.classList.add('open');
+    addError.style.display = 'none';
+    document.getElementById('fName').focus();
+  });
+  document.getElementById('cancelAdd').addEventListener('click', function(){
+    addPanel.classList.remove('open');
+    document.getElementById('fName').value = '';
+    document.getElementById('fOs').value = '';
+    document.getElementById('fTag').value = '';
+    addError.style.display = 'none';
+  });
+  document.getElementById('submitAdd').addEventListener('click', function(){
+    var name = document.getElementById('fName').value.trim();
+    var platform = document.getElementById('fPlatform').value;
+    var os = document.getElementById('fOs').value.trim();
+    var tag = document.getElementById('fTag').value.trim();
+    if(!name){
+      addError.textContent = 'Enter a device name first.';
+      addError.style.display = 'block';
+      return;
+    }
+    devices.push({ id: uid(), name: name, platform: platform, os: os, tag: tag, status: 'free', updatedAt: Date.now() });
+    document.getElementById('fName').value = '';
+    document.getElementById('fOs').value = '';
+    document.getElementById('fTag').value = '';
+    addPanel.classList.remove('open');
+    addError.style.display = 'none';
+    render();
+    save();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
