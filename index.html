@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Device Bay - QA Device Management</title>
+<title>QA Device Bay</title>
+</head>
+<body style="margin:0;background:#191c1f;">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
@@ -138,11 +140,28 @@
   #dmd .banner-error{background:var(--use-dim);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:12px}
   #dmd .banner-error.show{display:flex}
   #dmd .banner-error button{background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+
+  #dmd .admin-switch{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line-soft);border-radius:20px;padding:6px 12px 6px 14px;cursor:pointer;user-select:none}
+  #dmd .admin-switch span{font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
+  #dmd .admin-switch .track{width:30px;height:17px;border-radius:10px;background:var(--line);position:relative;transition:background .15s}
+  #dmd .admin-switch .knob{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--text-dim);transition:transform .15s, background .15s}
+  #dmd .admin-switch.on .track{background:var(--free-dim)}
+  #dmd .admin-switch.on .knob{transform:translateX(13px);background:var(--free)}
+  #dmd .admin-switch.on span{color:var(--free)}
+  #dmd:not(.admin-on) .btn-add,#dmd:not(.admin-on) .remove-btn{display:none}
+
+  #dmd .modal-overlay{position:fixed;inset:0;background:rgba(10,12,14,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+  #dmd .modal-overlay.open{display:flex}
+  #dmd .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;width:100%;max-width:320px}
+  #dmd .modal-box h3{font-size:18px;color:var(--text);margin-bottom:4px}
+  #dmd .modal-box p{font-size:12px;color:var(--text-dim);margin:0 0 14px}
+  #dmd .modal-box input[type=text]{width:100%;margin-bottom:8px}
+  #dmd .modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  #dmd .device-meta .used-by{color:var(--use)}
 </style>
-</head>
-<body>
+
 <div id="dmd">
-  <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">QA team device management dashboard: add devices, mark them free or in use, and remove them from the shared board.</h2>
+  <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">QA team device management dashboard: view devices and mark them free or in use.</h2>
 
   <div class="titlebar">
     <div>
@@ -169,7 +188,6 @@
     <button class="chip active" data-filter="all">All</button>
     <button class="chip" data-filter="free">Free</button>
     <button class="chip" data-filter="use">In use</button>
-    <button class="btn-add" id="openAdd" type="button"><i class="ti ti-plus" aria-hidden="true"></i>Add device</button>
   </div>
   <div class="platform-row">
     <button class="chip active" data-platform="all">All platforms</button>
@@ -177,49 +195,47 @@
     <button class="chip" data-platform="iOS">iOS</button>
   </div>
 
-  <div class="add-panel" id="addPanel">
-    <div class="field">
-      <label for="fName">Device name</label>
-      <input type="text" id="fName" placeholder="Pixel 8 Pro">
-    </div>
-    <div class="field">
-      <label for="fPlatform">Platform</label>
-      <select id="fPlatform">
-        <option>Android</option>
-        <option>iOS</option>
-      </select>
-    </div>
-    <div class="field">
-      <label for="fOs">OS version</label>
-      <input type="text" id="fOs" placeholder="OS-16">
-    </div>
-    <div class="field">
-      <label for="fTag">Asset tag (optional)</label>
-      <input type="text" id="fTag" placeholder="QA-014">
-    </div>
-    <div class="error" id="addError" style="display:none"></div>
-    <div class="actions">
-      <button class="btn-ghost" id="cancelAdd" type="button">Cancel</button>
-      <button class="btn-primary" id="submitAdd" type="button">Add to bay</button>
-    </div>
-  </div>
-
   <div id="gridWrap">
     <div class="loading">Loading device bay...</div>
   </div>
+
+  <div class="modal-overlay" id="useModal">
+    <div class="modal-box">
+      <h3>Who's taking this device?</h3>
+      <p>Enter the QA name before marking it in use. It'll be cleared automatically once the device is marked free again.</p>
+      <input type="text" id="useQaName" placeholder="Your name">
+      <div class="error" id="useModalError" style="display:none">Enter a name first.</div>
+      <div class="actions">
+        <button class="btn-ghost" id="useModalCancel" type="button">Cancel</button>
+        <button class="btn-primary" id="useModalConfirm" type="button">Mark in use</button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<script>
-(function(){
-  var STORAGE_KEY = 'devices';
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyBlZHMI2oOQWB7mlKanbufm6oZGX21Ncro",
+    authDomain: "qa-device-bay-ob.firebaseapp.com",
+    projectId: "qa-device-bay-ob",
+    storageBucket: "qa-device-bay-ob.firebasestorage.app",
+    messagingSenderId: "375377198641",
+    appId: "1:375377198641:web:dd121b0c03f36216a19f10"
+  };
+  var fbApp = initializeApp(firebaseConfig);
+  var db = getFirestore(fbApp);
+  var deviceDocRef = doc(db, "deviceBay", "main");
+
   var devices = [];
   var statusFilter = 'all';
   var platformFilter = 'all';
   var query = '';
+  var applyingRemote = false;
 
   var gridWrap = document.getElementById('gridWrap');
-  var addPanel = document.getElementById('addPanel');
-  var addError = document.getElementById('addError');
   var syncStatus = document.getElementById('syncStatus');
   var syncText = document.getElementById('syncText');
   var errorBanner = document.getElementById('errorBanner');
@@ -257,14 +273,7 @@
     { name: 'iPhone 6S-2', platform: 'iOS', os: 'OS-15' }
   ];
 
-  async function load(){
-    setSync('saving', 'Loading');
-    try{
-      var raw = localStorage.getItem(STORAGE_KEY);
-      devices = raw ? JSON.parse(raw) : [];
-    }catch(e){
-      devices = [];
-    }
+  function ensureSeeded(){
     var existingNames = devices.map(function(d){ return d.name.trim().toLowerCase(); });
     var added = false;
     SEED_DEVICES.forEach(function(sd){
@@ -274,13 +283,29 @@
         added = true;
       }
     });
-    render();
-    if(added){
-      save();
-    }else{
-      setSync('ok', 'Synced');
-    }
+    return added;
   }
+
+  onSnapshot(deviceDocRef, function(snap){
+    applyingRemote = true;
+    if(snap.exists()){
+      devices = (snap.data() && snap.data().devices) ? snap.data().devices : [];
+      var added = ensureSeeded();
+      render();
+      setSync('ok', 'Synced');
+      applyingRemote = false;
+      if(added) save();
+    }else{
+      devices = [];
+      ensureSeeded();
+      render();
+      applyingRemote = false;
+      save();
+    }
+  }, function(err){
+    console.error('Firestore listen error', err);
+    setSync('error', 'Sync failed');
+  });
 
   var saveChain = Promise.resolve();
   function save(){
@@ -289,14 +314,22 @@
   }
 
   async function saveWithRetry(maxAttempts){
-    var snapshot = JSON.stringify(devices);
+    var snapshot = devices.slice();
     setSync('saving', 'Saving');
-    try{
-      localStorage.setItem(STORAGE_KEY, snapshot);
-      setSync('ok', 'Synced');
-    }catch(e){
-      console.error('Storage error', e);
-      setSync('error', 'Sync failed');
+    for(var attempt = 1; attempt <= maxAttempts; attempt++){
+      try{
+        await setDoc(deviceDocRef, { devices: snapshot });
+        setSync('ok', 'Synced');
+        return;
+      }catch(e){
+        console.error('Firestore save error', e);
+        if(attempt < maxAttempts){
+          await new Promise(function(r){ setTimeout(r, 500 * attempt); });
+        }else{
+          try{ localStorage.setItem('devices_local_backup', JSON.stringify(snapshot)); }catch(e2){}
+          setSync('error', 'Sync failed');
+        }
+      }
     }
   }
 
@@ -316,10 +349,9 @@
       '<div class="card" data-id="' + d.id + '">' +
         '<div class="card-top">' +
           '<div class="status-tag ' + (isFree?'free':'use') + '"><span class="dot ' + (isFree?'free':'use') + '"></span>' + (isFree?'Free':'In use') + '</div>' +
-          '<button class="remove-btn" data-remove="' + d.id + '" aria-label="Remove ' + esc(d.name) + '"><i class="ti ti-trash" aria-hidden="true"></i></button>' +
         '</div>' +
         '<div class="device-name">' + esc(d.name) + '</div>' +
-        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + '</div>' +
+        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + (!isFree && d.usedBy ? '<span class="used-by mono">by ' + esc(d.usedBy) + '</span>' : '') + '</div>' +
         '<button class="toggle-btn ' + (isFree?'mark-use':'mark-free') + '" data-toggle="' + d.id + '">' + (isFree ? 'Mark in use' : 'Mark free') + '</button>' +
       '</div>';
   }
@@ -376,21 +408,59 @@
       var id = toggleId.getAttribute('data-toggle');
       var dev = devices.find(function(x){return x.id===id});
       if(dev){
-        dev.status = dev.status === 'free' ? 'use' : 'free';
-        dev.updatedAt = Date.now();
-        render();
-        save();
+        if(dev.status === 'free'){
+          openUseModal(id);
+        }else{
+          dev.status = 'free';
+          dev.usedBy = '';
+          dev.updatedAt = Date.now();
+          render();
+          save();
+        }
       }
     }
-    if(removeId){
-      var rid = removeId.getAttribute('data-remove');
-      var dev2 = devices.find(function(x){return x.id===rid});
-      if(dev2 && confirm('Remove "' + dev2.name + '" from the device bay?')){
-        devices = devices.filter(function(x){return x.id!==rid});
-        render();
-        save();
-      }
+  });
+
+  var useModal = document.getElementById('useModal');
+  var useQaName = document.getElementById('useQaName');
+  var useModalError = document.getElementById('useModalError');
+  var pendingUseId = null;
+
+  function openUseModal(id){
+    pendingUseId = id;
+    useQaName.value = '';
+    useModalError.style.display = 'none';
+    useModal.classList.add('open');
+    useQaName.focus();
+  }
+  function closeUseModal(){
+    useModal.classList.remove('open');
+    pendingUseId = null;
+  }
+  document.getElementById('useModalCancel').addEventListener('click', closeUseModal);
+  document.getElementById('useModalConfirm').addEventListener('click', function(){
+    var name = useQaName.value.trim();
+    if(!name){
+      useModalError.style.display = 'block';
+      useQaName.focus();
+      return;
     }
+    var dev = devices.find(function(x){return x.id===pendingUseId});
+    if(dev){
+      dev.status = 'use';
+      dev.usedBy = name;
+      dev.updatedAt = Date.now();
+      render();
+      save();
+    }
+    closeUseModal();
+  });
+  useQaName.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ document.getElementById('useModalConfirm').click(); }
+    if(e.key === 'Escape'){ closeUseModal(); }
+  });
+  useModal.addEventListener('click', function(e){
+    if(e.target === useModal){ closeUseModal(); }
   });
 
   document.getElementById('search').addEventListener('input', function(e){
@@ -415,41 +485,7 @@
       render();
     });
   });
-
-  document.getElementById('openAdd').addEventListener('click', function(){
-    addPanel.classList.add('open');
-    addError.style.display = 'none';
-    document.getElementById('fName').focus();
-  });
-  document.getElementById('cancelAdd').addEventListener('click', function(){
-    addPanel.classList.remove('open');
-    document.getElementById('fName').value = '';
-    document.getElementById('fOs').value = '';
-    document.getElementById('fTag').value = '';
-    addError.style.display = 'none';
-  });
-  document.getElementById('submitAdd').addEventListener('click', function(){
-    var name = document.getElementById('fName').value.trim();
-    var platform = document.getElementById('fPlatform').value;
-    var os = document.getElementById('fOs').value.trim();
-    var tag = document.getElementById('fTag').value.trim();
-    if(!name){
-      addError.textContent = 'Enter a device name first.';
-      addError.style.display = 'block';
-      return;
-    }
-    devices.push({ id: uid(), name: name, platform: platform, os: os, tag: tag, status: 'free', updatedAt: Date.now() });
-    document.getElementById('fName').value = '';
-    document.getElementById('fOs').value = '';
-    document.getElementById('fTag').value = '';
-    addPanel.classList.remove('open');
-    addError.style.display = 'none';
-    render();
-    save();
-  });
-
-  load();
-})();
 </script>
+
 </body>
 </html>
