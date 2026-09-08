@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QA Device Bay</title>
-</head>
-<body style="margin:0;background:#191c1f;">
+<title>Device Bay - QA Device Management</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <style>
   :root{
     --bg:#191c1f;
@@ -28,6 +28,7 @@
     --ios:#9fb4e8;
   }
   *{box-sizing:border-box}
+  body{margin:0;background:var(--bg)}
   #dmd{
     font-family:'Inter',system-ui,sans-serif;
     background:var(--bg);
@@ -141,27 +142,21 @@
   #dmd .banner-error.show{display:flex}
   #dmd .banner-error button{background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
 
-  #dmd .admin-switch{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line-soft);border-radius:20px;padding:6px 12px 6px 14px;cursor:pointer;user-select:none}
-  #dmd .admin-switch span{font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
-  #dmd .admin-switch .track{width:30px;height:17px;border-radius:10px;background:var(--line);position:relative;transition:background .15s}
-  #dmd .admin-switch .knob{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--text-dim);transition:transform .15s, background .15s}
-  #dmd .admin-switch.on .track{background:var(--free-dim)}
-  #dmd .admin-switch.on .knob{transform:translateX(13px);background:var(--free)}
-  #dmd .admin-switch.on span{color:var(--free)}
-  #dmd:not(.admin-on) .btn-add,#dmd:not(.admin-on) .remove-btn{display:none}
-
   #dmd .modal-overlay{position:fixed;inset:0;background:rgba(10,12,14,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
   #dmd .modal-overlay.open{display:flex}
   #dmd .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;width:100%;max-width:320px}
   #dmd .modal-box h3{font-size:18px;color:var(--text);margin-bottom:4px}
   #dmd .modal-box p{font-size:12px;color:var(--text-dim);margin:0 0 14px}
   #dmd .modal-box input[type=text]{width:100%;margin-bottom:8px}
+  #dmd .modal-box .error{margin-bottom:6px}
   #dmd .modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
   #dmd .device-meta .used-by{color:var(--use)}
+  #dmd .device-meta .last-used-by{color:var(--text-faint)}
 </style>
-
+</head>
+<body>
 <div id="dmd">
-  <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">QA team device management dashboard: view devices and mark them free or in use.</h2>
+  <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">QA team device management dashboard: add devices, mark them free or in use, and remove them from the shared board.</h2>
 
   <div class="titlebar">
     <div>
@@ -188,11 +183,39 @@
     <button class="chip active" data-filter="all">All</button>
     <button class="chip" data-filter="free">Free</button>
     <button class="chip" data-filter="use">In use</button>
+    <button class="btn-add" id="openAdd" type="button"><i class="ti ti-plus" aria-hidden="true"></i>Add device</button>
   </div>
   <div class="platform-row">
     <button class="chip active" data-platform="all">All platforms</button>
     <button class="chip" data-platform="Android">Android</button>
     <button class="chip" data-platform="iOS">iOS</button>
+  </div>
+
+  <div class="add-panel" id="addPanel">
+    <div class="field">
+      <label for="fName">Device name</label>
+      <input type="text" id="fName" placeholder="Pixel 8 Pro">
+    </div>
+    <div class="field">
+      <label for="fPlatform">Platform</label>
+      <select id="fPlatform">
+        <option>Android</option>
+        <option>iOS</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="fOs">OS version</label>
+      <input type="text" id="fOs" placeholder="OS-16">
+    </div>
+    <div class="field">
+      <label for="fTag">Asset tag (optional)</label>
+      <input type="text" id="fTag" placeholder="QA-014">
+    </div>
+    <div class="error" id="addError" style="display:none"></div>
+    <div class="actions">
+      <button class="btn-ghost" id="cancelAdd" type="button">Cancel</button>
+      <button class="btn-primary" id="submitAdd" type="button">Add to bay</button>
+    </div>
   </div>
 
   <div id="gridWrap">
@@ -202,7 +225,7 @@
   <div class="modal-overlay" id="useModal">
     <div class="modal-box">
       <h3>Who's taking this device?</h3>
-      <p>Enter the QA name before marking it in use. It'll be cleared automatically once the device is marked free again.</p>
+      <p>Enter the QA name before marking it in use.</p>
       <input type="text" id="useQaName" placeholder="Your name">
       <div class="error" id="useModalError" style="display:none">Enter a name first.</div>
       <div class="actions">
@@ -213,32 +236,42 @@
   </div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-
+<script>
+(function(){
+  // ---- Firebase setup ----
+  // Replace this with the firebaseConfig object from your Firebase project:
+  // Project Settings -> Your apps -> Web app -> SDK setup and configuration
   var firebaseConfig = {
-    apiKey: "AIzaSyBlZHMI2oOQWB7mlKanbufm6oZGX21Ncro",
-    authDomain: "qa-device-bay-ob.firebaseapp.com",
-    projectId: "qa-device-bay-ob",
-    storageBucket: "qa-device-bay-ob.firebasestorage.app",
-    messagingSenderId: "375377198641",
-    appId: "1:375377198641:web:dd121b0c03f36216a19f10"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
-  var fbApp = initializeApp(firebaseConfig);
-  var db = getFirestore(fbApp);
-  var deviceDocRef = doc(db, "deviceBay", "main");
+  firebase.initializeApp(firebaseConfig);
+  var devicesRef = firebase.database().ref('devices');
 
-  var devices = [];
+  var devicesMap = {};
   var statusFilter = 'all';
   var platformFilter = 'all';
   var query = '';
-  var applyingRemote = false;
+
+  function devicesArray(){
+    return Object.keys(devicesMap).map(function(id){ return devicesMap[id]; });
+  }
 
   var gridWrap = document.getElementById('gridWrap');
+  var addPanel = document.getElementById('addPanel');
+  var addError = document.getElementById('addError');
   var syncStatus = document.getElementById('syncStatus');
   var syncText = document.getElementById('syncText');
   var errorBanner = document.getElementById('errorBanner');
+  var useModal = document.getElementById('useModal');
+  var useQaName = document.getElementById('useQaName');
+  var useModalError = document.getElementById('useModalError');
+  var pendingUseId = null;
 
   function uid(){ return 'd_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
@@ -273,71 +306,88 @@
     { name: 'iPhone 6S-2', platform: 'iOS', os: 'OS-15' }
   ];
 
-  function ensureSeeded(){
-    var existingNames = devices.map(function(d){ return d.name.trim().toLowerCase(); });
-    var added = false;
-    SEED_DEVICES.forEach(function(sd){
-      if(existingNames.indexOf(sd.name.trim().toLowerCase()) === -1){
-        devices.push({ id: uid(), name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', updatedAt: Date.now() });
-        existingNames.push(sd.name.trim().toLowerCase());
-        added = true;
+  var AUTO_FREE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  function checkExpiredDevices(){
+    var now = Date.now();
+    Object.keys(devicesMap).forEach(function(id){
+      var d = devicesMap[id];
+      if(d.status === 'use' && d.updatedAt && (now - d.updatedAt) >= AUTO_FREE_MS){
+        setDevice(id, { status: 'free', usedBy: '', lastUsedBy: d.usedBy || d.lastUsedBy || '', updatedAt: now });
       }
     });
-    return added;
   }
 
-  onSnapshot(deviceDocRef, function(snap){
-    applyingRemote = true;
-    if(snap.exists()){
-      devices = (snap.data() && snap.data().devices) ? snap.data().devices : [];
-      var added = ensureSeeded();
-      render();
-      setSync('ok', 'Synced');
-      applyingRemote = false;
-      if(added) save();
-    }else{
-      devices = [];
-      ensureSeeded();
-      render();
-      applyingRemote = false;
-      save();
-    }
-  }, function(err){
-    console.error('Firestore listen error', err);
-    setSync('error', 'Sync failed');
-  });
-
-  var saveChain = Promise.resolve();
-  function save(){
-    saveChain = saveChain.then(function(){ return saveWithRetry(3); });
-    return saveChain;
-  }
-
-  async function saveWithRetry(maxAttempts){
-    var snapshot = devices.slice();
-    setSync('saving', 'Saving');
-    for(var attempt = 1; attempt <= maxAttempts; attempt++){
-      try{
-        await setDoc(deviceDocRef, { devices: snapshot });
-        setSync('ok', 'Synced');
-        return;
-      }catch(e){
-        console.error('Firestore save error', e);
-        if(attempt < maxAttempts){
-          await new Promise(function(r){ setTimeout(r, 500 * attempt); });
-        }else{
-          try{ localStorage.setItem('devices_local_backup', JSON.stringify(snapshot)); }catch(e2){}
-          setSync('error', 'Sync failed');
-        }
+  function load(){
+    setSync('saving', 'Connecting');
+    // Seed the database exactly once, atomically, if it's empty.
+    // A transaction is safe even if two teammates load at the same instant.
+    devicesRef.transaction(function(current){
+      if(current === null){
+        var seedMap = {};
+        SEED_DEVICES.forEach(function(sd){
+          var id = uid();
+          seedMap[id] = { id: id, name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', usedBy: '', lastUsedBy: '', updatedAt: Date.now() };
+        });
+        return seedMap;
       }
-    }
+      return current;
+    }).catch(function(e){
+      console.error('Seed transaction failed', e);
+    });
+
+    // Live listener: fires on initial load AND every time any teammate changes data.
+    devicesRef.on('value', function(snapshot){
+      devicesMap = snapshot.val() || {};
+      render();
+      setSync('ok', 'Live');
+      checkExpiredDevices();
+    }, function(err){
+      console.error('Firebase listener error', err);
+      setSync('error', 'Sync failed');
+    });
+
+    // Also sweep periodically in case a device crosses the 24h mark while
+    // nothing else changes (so no new snapshot would otherwise arrive).
+    setInterval(checkExpiredDevices, 5 * 60 * 1000);
+  }
+
+  function setDevice(id, patch){
+    setSync('saving', 'Saving');
+    devicesRef.child(id).update(patch).then(function(){
+      setSync('ok', 'Live');
+    }).catch(function(e){
+      console.error('Firebase write failed', e);
+      setSync('error', 'Sync failed');
+    });
+  }
+
+  function addDevice(dev){
+    setSync('saving', 'Saving');
+    devicesRef.child(dev.id).set(dev).then(function(){
+      setSync('ok', 'Live');
+    }).catch(function(e){
+      console.error('Firebase write failed', e);
+      setSync('error', 'Sync failed');
+    });
+  }
+
+  function removeDevice(id){
+    setSync('saving', 'Saving');
+    devicesRef.child(id).remove().then(function(){
+      setSync('ok', 'Live');
+    }).catch(function(e){
+      console.error('Firebase delete failed', e);
+      setSync('error', 'Sync failed');
+    });
   }
 
   document.getElementById('retrySync').addEventListener('click', function(){
-    save();
+    load();
   });
 
   function updateStats(){
+    var devices = devicesArray();
     document.getElementById('statTotal').textContent = devices.length;
     document.getElementById('statFree').textContent = devices.filter(function(d){return d.status==='free'}).length;
     document.getElementById('statUse').textContent = devices.filter(function(d){return d.status==='use'}).length;
@@ -349,15 +399,17 @@
       '<div class="card" data-id="' + d.id + '">' +
         '<div class="card-top">' +
           '<div class="status-tag ' + (isFree?'free':'use') + '"><span class="dot ' + (isFree?'free':'use') + '"></span>' + (isFree?'Free':'In use') + '</div>' +
+          '<button class="remove-btn" data-remove="' + d.id + '" aria-label="Remove ' + esc(d.name) + '"><i class="ti ti-trash" aria-hidden="true"></i></button>' +
         '</div>' +
         '<div class="device-name">' + esc(d.name) + '</div>' +
-        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + (!isFree && d.usedBy ? '<span class="used-by mono">by ' + esc(d.usedBy) + '</span>' : '') + '</div>' +
+        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + (!isFree && d.usedBy ? '<span class="used-by mono">by ' + esc(d.usedBy) + '</span>' : '') + (isFree && d.lastUsedBy ? '<span class="last-used-by mono">Last used by ' + esc(d.lastUsedBy) + '</span>' : '') + '</div>' +
         '<button class="toggle-btn ' + (isFree?'mark-use':'mark-free') + '" data-toggle="' + d.id + '">' + (isFree ? 'Mark in use' : 'Mark free') + '</button>' +
       '</div>';
   }
 
   function render(){
     updateStats();
+    var devices = devicesArray();
     var list = devices.filter(function(d){
       if(statusFilter !== 'all' && d.status !== statusFilter) return false;
       if(platformFilter !== 'all' && d.platform !== platformFilter) return false;
@@ -406,25 +458,23 @@
     var removeId = e.target.closest('[data-remove]');
     if(toggleId){
       var id = toggleId.getAttribute('data-toggle');
-      var dev = devices.find(function(x){return x.id===id});
+      var dev = devicesMap[id];
       if(dev){
         if(dev.status === 'free'){
           openUseModal(id);
         }else{
-          dev.status = 'free';
-          dev.usedBy = '';
-          dev.updatedAt = Date.now();
-          render();
-          save();
+          setDevice(id, { status: 'free', usedBy: '', lastUsedBy: dev.usedBy || dev.lastUsedBy || '', updatedAt: Date.now() });
         }
       }
     }
+    if(removeId){
+      var rid = removeId.getAttribute('data-remove');
+      var dev2 = devicesMap[rid];
+      if(dev2 && confirm('Remove "' + dev2.name + '" from the device bay?')){
+        removeDevice(rid);
+      }
+    }
   });
-
-  var useModal = document.getElementById('useModal');
-  var useQaName = document.getElementById('useQaName');
-  var useModalError = document.getElementById('useModalError');
-  var pendingUseId = null;
 
   function openUseModal(id){
     pendingUseId = id;
@@ -445,13 +495,9 @@
       useQaName.focus();
       return;
     }
-    var dev = devices.find(function(x){return x.id===pendingUseId});
+    var dev = devicesMap[pendingUseId];
     if(dev){
-      dev.status = 'use';
-      dev.usedBy = name;
-      dev.updatedAt = Date.now();
-      render();
-      save();
+      setDevice(pendingUseId, { status: 'use', usedBy: name, updatedAt: Date.now() });
     }
     closeUseModal();
   });
@@ -485,6 +531,40 @@
       render();
     });
   });
+
+  document.getElementById('openAdd').addEventListener('click', function(){
+    addPanel.classList.add('open');
+    addError.style.display = 'none';
+    document.getElementById('fName').focus();
+  });
+  document.getElementById('cancelAdd').addEventListener('click', function(){
+    addPanel.classList.remove('open');
+    document.getElementById('fName').value = '';
+    document.getElementById('fOs').value = '';
+    document.getElementById('fTag').value = '';
+    addError.style.display = 'none';
+  });
+  document.getElementById('submitAdd').addEventListener('click', function(){
+    var name = document.getElementById('fName').value.trim();
+    var platform = document.getElementById('fPlatform').value;
+    var os = document.getElementById('fOs').value.trim();
+    var tag = document.getElementById('fTag').value.trim();
+    if(!name){
+      addError.textContent = 'Enter a device name first.';
+      addError.style.display = 'block';
+      return;
+    }
+    var newId = uid();
+    addDevice({ id: newId, name: name, platform: platform, os: os, tag: tag, status: 'free', usedBy: '', lastUsedBy: '', updatedAt: Date.now() });
+    document.getElementById('fName').value = '';
+    document.getElementById('fOs').value = '';
+    document.getElementById('fTag').value = '';
+    addPanel.classList.remove('open');
+    addError.style.display = 'none';
+  });
+
+  load();
+})();
 </script>
 
 </body>
