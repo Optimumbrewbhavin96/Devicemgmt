@@ -117,6 +117,9 @@
   #dmd .remove-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;line-height:1;padding:2px}
   #dmd .remove-btn:hover{color:var(--danger)}
   #dmd .device-name{font-size:16px;font-weight:600;margin-bottom:2px}
+  #dmd .last-used-line{font-size:12px;color:var(--text-dim);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+  #dmd .last-used-line.current{color:var(--use)}
+  #dmd .last-used-line i{font-size:13px;color:var(--text-faint)}
   #dmd .device-meta{font-size:12px;color:var(--text-dim);margin-bottom:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   #dmd .device-meta .tag{color:var(--text-faint)}
   #dmd .toggle-btn{
@@ -229,6 +232,8 @@
   var db = getFirestore(fbApp);
   var deviceDocRef = doc(db, "deviceBay", "main");
 
+  var AUTO_FREE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
   var devices = [];
   var statusFilter = 'all';
   var platformFilter = 'all';
@@ -278,7 +283,7 @@
     var added = false;
     SEED_DEVICES.forEach(function(sd){
       if(existingNames.indexOf(sd.name.trim().toLowerCase()) === -1){
-        devices.push({ id: uid(), name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', updatedAt: Date.now() });
+        devices.push({ id: uid(), name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', usedBy: '', lastUsedBy: '', updatedAt: Date.now() });
         existingNames.push(sd.name.trim().toLowerCase());
         added = true;
       }
@@ -286,15 +291,35 @@
     return added;
   }
 
+  // Any device left "in use" for longer than AUTO_FREE_MS is automatically
+  // marked free again. The person who had it is preserved as lastUsedBy so
+  // the card can still show who had it last.
+  function autoFreeStale(){
+    var now = Date.now();
+    var changed = false;
+    devices.forEach(function(d){
+      if(d.status === 'use' && typeof d.updatedAt === 'number' && (now - d.updatedAt) > AUTO_FREE_MS){
+        d.lastUsedBy = d.usedBy || d.lastUsedBy || '';
+        d.usedBy = '';
+        d.status = 'free';
+        d.updatedAt = now;
+        d.autoFreed = true;
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
   onSnapshot(deviceDocRef, function(snap){
     applyingRemote = true;
     if(snap.exists()){
       devices = (snap.data() && snap.data().devices) ? snap.data().devices : [];
-      var added = ensureSeeded();
+      var seeded = ensureSeeded();
+      var freed = autoFreeStale();
       render();
       setSync('ok', 'Synced');
       applyingRemote = false;
-      if(added) save();
+      if(seeded || freed) save();
     }else{
       devices = [];
       ensureSeeded();
@@ -306,6 +331,16 @@
     console.error('Firestore listen error', err);
     setSync('error', 'Sync failed');
   });
+
+  // Belt-and-braces client-side sweep so a device frees itself even if no
+  // one touches the shared doc in the meantime (e.g. tab left open for days).
+  setInterval(function(){
+    if(applyingRemote) return;
+    if(autoFreeStale()){
+      render();
+      save();
+    }
+  }, 5 * 60 * 1000);
 
   var saveChain = Promise.resolve();
   function save(){
@@ -343,6 +378,17 @@
     document.getElementById('statUse').textContent = devices.filter(function(d){return d.status==='use'}).length;
   }
 
+  function lastUsedLineHtml(d){
+    var isFree = d.status === 'free';
+    if(!isFree && d.usedBy){
+      return '<div class="last-used-line current"><i class="ti ti-user" aria-hidden="true"></i>In use by <b>' + esc(d.usedBy) + '</b></div>';
+    }
+    if(isFree && d.lastUsedBy){
+      return '<div class="last-used-line"><i class="ti ti-history" aria-hidden="true"></i>Last used by ' + esc(d.lastUsedBy) + '</div>';
+    }
+    return '';
+  }
+
   function cardHtml(d){
     var isFree = d.status === 'free';
     return '' +
@@ -351,7 +397,8 @@
           '<div class="status-tag ' + (isFree?'free':'use') + '"><span class="dot ' + (isFree?'free':'use') + '"></span>' + (isFree?'Free':'In use') + '</div>' +
         '</div>' +
         '<div class="device-name">' + esc(d.name) + '</div>' +
-        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + (!isFree && d.usedBy ? '<span class="used-by mono">by ' + esc(d.usedBy) + '</span>' : '') + '</div>' +
+        lastUsedLineHtml(d) +
+        '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + '</div>' +
         '<button class="toggle-btn ' + (isFree?'mark-use':'mark-free') + '" data-toggle="' + d.id + '">' + (isFree ? 'Mark in use' : 'Mark free') + '</button>' +
       '</div>';
   }
@@ -411,6 +458,7 @@
         if(dev.status === 'free'){
           openUseModal(id);
         }else{
+          dev.lastUsedBy = dev.usedBy || dev.lastUsedBy || '';
           dev.status = 'free';
           dev.usedBy = '';
           dev.updatedAt = Date.now();
