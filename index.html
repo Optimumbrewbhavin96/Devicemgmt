@@ -49,6 +49,7 @@
   }
   #dmd .titlebar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--line-soft)}
   #dmd .titlebar h1{font-size:30px;font-weight:700;color:var(--text)}
+  #dmd .titlebar-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
   #dmd .stats{display:flex;gap:10px}
   #dmd .stat{background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:8px 16px;text-align:center;min-width:64px}
   #dmd .stat b{display:block;font-size:20px;font-weight:600}
@@ -73,26 +74,7 @@
     padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;
   }
   #dmd .chip.active{background:var(--panel-2);color:var(--text);border-color:var(--text-dim)}
-  #dmd .btn-add{
-    background:var(--text);color:var(--bg);border:none;border-radius:7px;
-    padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
-    display:flex;align-items:center;gap:6px;
-  }
-  #dmd .btn-add:active{transform:scale(0.98)}
   #dmd .platform-row{display:flex;gap:8px;margin-bottom:18px}
-
-  #dmd .add-panel{
-    background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;
-    padding:16px;margin-bottom:18px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;
-  }
-  #dmd .add-panel.open{display:flex}
-  #dmd .field{display:flex;flex-direction:column;gap:5px}
-  #dmd .field label{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em}
-  #dmd .field input,#dmd .field select{width:170px}
-  #dmd .add-panel .actions{display:flex;gap:8px;margin-left:auto}
-  #dmd .btn-primary{background:var(--free);color:#0e1a14;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
-  #dmd .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--line);border-radius:7px;padding:9px 16px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
-  #dmd .error{font-size:12px;color:var(--danger);width:100%}
 
   #dmd .group{margin-bottom:22px}
   #dmd .group-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;color:var(--text-dim);font-size:13px;text-transform:uppercase;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace}
@@ -114,8 +96,6 @@
   #dmd .status-tag{display:flex;align-items:center;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace}
   #dmd .status-tag.free{color:var(--free)}
   #dmd .status-tag.use{color:var(--use)}
-  #dmd .remove-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;line-height:1;padding:2px}
-  #dmd .remove-btn:hover{color:var(--danger)}
   #dmd .device-name{font-size:16px;font-weight:600;margin-bottom:2px}
   #dmd .last-used-line{font-size:12px;color:var(--text-dim);margin-bottom:8px;display:flex;align-items:center;gap:5px}
   #dmd .last-used-line.current{color:var(--use)}
@@ -133,7 +113,7 @@
   #dmd .empty h3{color:var(--text-dim);font-size:20px;margin-bottom:6px;font-weight:600}
   #dmd .loading{text-align:center;padding:40px;color:var(--text-faint);font-size:13px}
 
-  #dmd .sync{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:6px}
+  #dmd .sync{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:0}
   #dmd .sync .sdot{width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
   #dmd .sync.saving .sdot{background:var(--use)}
   #dmd .sync.ok .sdot{background:var(--free)}
@@ -144,15 +124,6 @@
   #dmd .banner-error.show{display:flex}
   #dmd .banner-error button{background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
 
-  #dmd .admin-switch{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line-soft);border-radius:20px;padding:6px 12px 6px 14px;cursor:pointer;user-select:none}
-  #dmd .admin-switch span{font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
-  #dmd .admin-switch .track{width:30px;height:17px;border-radius:10px;background:var(--line);position:relative;transition:background .15s}
-  #dmd .admin-switch .knob{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--text-dim);transition:transform .15s, background .15s}
-  #dmd .admin-switch.on .track{background:var(--free-dim)}
-  #dmd .admin-switch.on .knob{transform:translateX(13px);background:var(--free)}
-  #dmd .admin-switch.on span{color:var(--free)}
-  #dmd:not(.admin-on) .btn-add,#dmd:not(.admin-on) .remove-btn{display:none}
-
   #dmd .modal-overlay{position:fixed;inset:0;background:rgba(10,12,14,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
   #dmd .modal-overlay.open{display:flex}
   #dmd .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;width:100%;max-width:320px}
@@ -160,7 +131,9 @@
   #dmd .modal-box p{font-size:12px;color:var(--text-dim);margin:0 0 14px}
   #dmd .modal-box input[type=text]{width:100%;margin-bottom:8px}
   #dmd .modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
-  #dmd .device-meta .used-by{color:var(--use)}
+  #dmd .error{font-size:12px;color:var(--danger);width:100%}
+  #dmd .btn-primary{background:var(--free);color:#0e1a14;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
+  #dmd .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--line);border-radius:7px;padding:9px 16px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
 </style>
 
 <div id="dmd">
@@ -171,7 +144,7 @@
       <p class="eyebrow">QA team</p>
       <h1>Device bay</h1>
     </div>
-    <div>
+    <div class="titlebar-right">
       <div class="stats">
         <div class="stat"><b id="statTotal">0</b><span>Total</span></div>
         <div class="stat free"><b id="statFree">0</b><span>Free</span></div>
@@ -417,7 +390,7 @@
     });
 
     if(devices.length === 0){
-      gridWrap.innerHTML = '<div class="empty"><h3>The bay is empty</h3><p>Add your first device to start tracking it.</p></div>';
+      gridWrap.innerHTML = '<div class="empty"><h3>The bay is empty</h3><p>Add devices from the Firebase console to get started.</p></div>';
       return;
     }
     if(list.length === 0){
@@ -450,7 +423,6 @@
 
   gridWrap.addEventListener('click', function(e){
     var toggleId = e.target.closest('[data-toggle]');
-    var removeId = e.target.closest('[data-remove]');
     if(toggleId){
       var id = toggleId.getAttribute('data-toggle');
       var dev = devices.find(function(x){return x.id===id});
