@@ -202,14 +202,15 @@
   var fbApp = initializeApp(firebaseConfig);
   var db = getFirestore(fbApp);
 
-  // NEW STRUCTURE: each device is now its own document in the `devices`
-  // collection (instead of one array inside a single deviceBay/main doc).
-  // This removes both prior bugs:
+  // NEW STRUCTURE: each device is now its own document directly inside
+  // the `deviceBay` collection (instead of one array nested inside a
+  // single deviceBay/main document). Collection name is kept as
+  // `deviceBay` per request. This removes both prior bugs:
   //  - no more hardcoded SEED_DEVICES / ensureSeeded() that re-adds
   //    "deleted" devices on every load
   //  - no more whole-array overwrite from stale tabs racing each other;
   //    every write here only ever touches the one document for that device
-  var devicesCol = collection(db, 'devices');
+  var devicesCol = collection(db, 'deviceBay');
 
   var AUTO_FREE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -269,7 +270,7 @@
     setSync('saving', 'Saving');
     for(var attempt = 1; attempt <= maxAttempts; attempt++){
       try{
-        await updateDoc(doc(db, 'devices', id), fields);
+        await updateDoc(doc(db, 'deviceBay', id), fields);
         setSync('ok', 'Synced');
         delete pendingWrites[id];
         render();
@@ -357,7 +358,7 @@
     });
 
     if(devices.length === 0){
-      gridWrap.innerHTML = '<div class="empty"><h3>The bay is empty</h3><p>Add devices from the Firebase console (Firestore \u2192 devices collection \u2192 Add document).</p></div>';
+      gridWrap.innerHTML = '<div class="empty"><h3>The bay is empty</h3><p>Add devices from the Firebase console (Firestore \u2192 deviceBay collection \u2192 Add document).</p></div>';
       return;
     }
     if(list.length === 0){
