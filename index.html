@@ -24,6 +24,8 @@
     --use:#e2895a;
     --use-dim:#3d2a1e;
     --danger:#e2685a;
+    --android:#8bd08a;
+    --ios:#9fb4e8;
   }
   *{box-sizing:border-box}
   #dmd{
@@ -47,7 +49,6 @@
   }
   #dmd .titlebar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--line-soft)}
   #dmd .titlebar h1{font-size:30px;font-weight:700;color:var(--text)}
-  #dmd .titlebar-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
   #dmd .stats{display:flex;gap:10px}
   #dmd .stat{background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:8px 16px;text-align:center;min-width:64px}
   #dmd .stat b{display:block;font-size:20px;font-weight:600}
@@ -56,7 +57,7 @@
   #dmd .stat.use b{color:var(--use)}
 
   #dmd .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
-  #dmd input[type=text]{
+  #dmd input[type=text],#dmd select{
     background:var(--panel);
     border:1px solid var(--line);
     color:var(--text);
@@ -65,14 +66,33 @@
     font-size:14px;
     font-family:inherit;
   }
-  #dmd input[type=text]:focus{outline:none;border-color:var(--text-dim)}
+  #dmd input[type=text]:focus,#dmd select:focus{outline:none;border-color:var(--text-dim)}
   #dmd #search{flex:1;min-width:160px}
   #dmd .chip{
     background:transparent;border:1px solid var(--line);color:var(--text-dim);
     padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;
   }
   #dmd .chip.active{background:var(--panel-2);color:var(--text);border-color:var(--text-dim)}
+  #dmd .btn-add{
+    background:var(--text);color:var(--bg);border:none;border-radius:7px;
+    padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+    display:flex;align-items:center;gap:6px;
+  }
+  #dmd .btn-add:active{transform:scale(0.98)}
   #dmd .platform-row{display:flex;gap:8px;margin-bottom:18px}
+
+  #dmd .add-panel{
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;
+    padding:16px;margin-bottom:18px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;
+  }
+  #dmd .add-panel.open{display:flex}
+  #dmd .field{display:flex;flex-direction:column;gap:5px}
+  #dmd .field label{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em}
+  #dmd .field input,#dmd .field select{width:170px}
+  #dmd .add-panel .actions{display:flex;gap:8px;margin-left:auto}
+  #dmd .btn-primary{background:var(--free);color:#0e1a14;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
+  #dmd .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--line);border-radius:7px;padding:9px 16px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
+  #dmd .error{font-size:12px;color:var(--danger);width:100%}
 
   #dmd .group{margin-bottom:22px}
   #dmd .group-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;color:var(--text-dim);font-size:13px;text-transform:uppercase;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace}
@@ -94,6 +114,8 @@
   #dmd .status-tag{display:flex;align-items:center;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace}
   #dmd .status-tag.free{color:var(--free)}
   #dmd .status-tag.use{color:var(--use)}
+  #dmd .remove-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;line-height:1;padding:2px}
+  #dmd .remove-btn:hover{color:var(--danger)}
   #dmd .device-name{font-size:16px;font-weight:600;margin-bottom:2px}
   #dmd .last-used-line{font-size:12px;color:var(--text-dim);margin-bottom:8px;display:flex;align-items:center;gap:5px}
   #dmd .last-used-line.current{color:var(--use)}
@@ -106,21 +128,30 @@
   }
   #dmd .toggle-btn.mark-free{background:var(--free-dim);border-color:var(--free);color:var(--free)}
   #dmd .toggle-btn.mark-use{background:var(--use-dim);border-color:var(--use);color:var(--use)}
-  #dmd .toggle-btn:disabled{opacity:.5;cursor:default}
 
   #dmd .empty{text-align:center;padding:50px 20px;color:var(--text-faint)}
   #dmd .empty h3{color:var(--text-dim);font-size:20px;margin-bottom:6px;font-weight:600}
   #dmd .loading{text-align:center;padding:40px;color:var(--text-faint);font-size:13px}
 
-  #dmd .sync{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:0}
+  #dmd .sync{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:6px}
   #dmd .sync .sdot{width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
   #dmd .sync.saving .sdot{background:var(--use)}
   #dmd .sync.ok .sdot{background:var(--free)}
   #dmd .sync.error{color:var(--danger)}
   #dmd .sync.error .sdot{background:var(--danger)}
+  #dmd .sync button{background:none;border:none;color:var(--danger);text-decoration:underline;cursor:pointer;font-size:11px;font-family:inherit;padding:0}
   #dmd .banner-error{background:var(--use-dim);border:1px solid var(--danger);color:var(--danger);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:12px}
   #dmd .banner-error.show{display:flex}
   #dmd .banner-error button{background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+
+  #dmd .admin-switch{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line-soft);border-radius:20px;padding:6px 12px 6px 14px;cursor:pointer;user-select:none}
+  #dmd .admin-switch span{font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
+  #dmd .admin-switch .track{width:30px;height:17px;border-radius:10px;background:var(--line);position:relative;transition:background .15s}
+  #dmd .admin-switch .knob{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--text-dim);transition:transform .15s, background .15s}
+  #dmd .admin-switch.on .track{background:var(--free-dim)}
+  #dmd .admin-switch.on .knob{transform:translateX(13px);background:var(--free)}
+  #dmd .admin-switch.on span{color:var(--free)}
+  #dmd:not(.admin-on) .btn-add,#dmd:not(.admin-on) .remove-btn{display:none}
 
   #dmd .modal-overlay{position:fixed;inset:0;background:rgba(10,12,14,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
   #dmd .modal-overlay.open{display:flex}
@@ -129,9 +160,7 @@
   #dmd .modal-box p{font-size:12px;color:var(--text-dim);margin:0 0 14px}
   #dmd .modal-box input[type=text]{width:100%;margin-bottom:8px}
   #dmd .modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
-  #dmd .error{font-size:12px;color:var(--danger);width:100%}
-  #dmd .btn-primary{background:var(--free);color:#0e1a14;border:none;border-radius:7px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
-  #dmd .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--line);border-radius:7px;padding:9px 16px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
+  #dmd .device-meta .used-by{color:var(--use)}
 </style>
 
 <div id="dmd">
@@ -142,7 +171,7 @@
       <p class="eyebrow">QA team</p>
       <h1>Device bay</h1>
     </div>
-    <div class="titlebar-right">
+    <div>
       <div class="stats">
         <div class="stat"><b id="statTotal">0</b><span>Total</span></div>
         <div class="stat free"><b id="statFree">0</b><span>Free</span></div>
@@ -153,8 +182,8 @@
   </div>
 
   <div class="banner-error" id="errorBanner">
-    <span>Some changes couldn't sync. They may not be reflected for other teammates yet.</span>
-    <button id="dismissError" type="button">Dismiss</button>
+    <span>Some changes couldn't sync to the shared board. They're only saved on this device for now.</span>
+    <button id="retrySync" type="button">Retry</button>
   </div>
 
   <div class="toolbar">
@@ -189,7 +218,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getFirestore, collection, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
   var firebaseConfig = {
     apiKey: "AIzaSyBlZHMI2oOQWB7mlKanbufm6oZGX21Ncro",
@@ -201,33 +230,27 @@
   };
   var fbApp = initializeApp(firebaseConfig);
   var db = getFirestore(fbApp);
-
-  // NEW STRUCTURE: each device is now its own document directly inside
-  // the `deviceBay` collection (instead of one array nested inside a
-  // single deviceBay/main document). Collection name is kept as
-  // `deviceBay` per request. This removes both prior bugs:
-  //  - no more hardcoded SEED_DEVICES / ensureSeeded() that re-adds
-  //    "deleted" devices on every load
-  //  - no more whole-array overwrite from stale tabs racing each other;
-  //    every write here only ever touches the one document for that device
-  var devicesCol = collection(db, 'deviceBay');
+  var deviceDocRef = doc(db, "deviceBay", "main");
 
   var AUTO_FREE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-  var devices = []; // local cache built from Firestore snapshot, [{id, ...fields}]
+  var devices = [];
   var statusFilter = 'all';
   var platformFilter = 'all';
   var query = '';
-  var pendingWrites = {}; // deviceId -> true while a write is in flight, to disable double-clicks
+  var applyingRemote = false;
 
   var gridWrap = document.getElementById('gridWrap');
   var syncStatus = document.getElementById('syncStatus');
   var syncText = document.getElementById('syncText');
   var errorBanner = document.getElementById('errorBanner');
 
+  function uid(){ return 'd_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
   function setSync(state, msg){
     syncStatus.className = 'sync ' + state;
     syncText.textContent = msg;
+    errorBanner.classList.toggle('show', state === 'error');
   }
 
   function esc(s){
@@ -236,83 +259,118 @@
     return d.innerHTML;
   }
 
-  onSnapshot(devicesCol, function(snap){
-    devices = snap.docs
-      .filter(function(d){ return d.id !== 'main'; }) // skip the old leftover deviceBay/main doc (pre-restructure array data)
-      .map(function(d){
-      var data = d.data();
-      return {
-        id: d.id,
-        name: data.name || '',
-        platform: data.platform || '',
-        os: data.os || '',
-        tag: data.tag || '',
-        status: data.status || 'free',
-        usedBy: data.usedBy || '',
-        lastUsedBy: data.lastUsedBy || '',
-        updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : 0
-      };
+  var SEED_DEVICES = [
+    { name: 'Samsung M36', platform: 'Android', os: 'OS-16' },
+    { name: 'Lava LXX', platform: 'Android', os: 'OS-15' },
+    { name: 'Nokia 5.3', platform: 'Android', os: 'OS-12' },
+    { name: 'Lava LMX', platform: 'Android', os: 'OS-11' },
+    { name: 'Samsung A10', platform: 'Android', os: 'OS-11' },
+    { name: 'Samsung F02', platform: 'Android', os: 'OS-11' },
+    { name: 'Asus', platform: 'Android', os: 'OS-8' },
+    { name: 'Samsung J5', platform: 'Android', os: 'OS-8' },
+    { name: 'Oppo A11', platform: 'Android', os: 'OS-16' },
+    { name: 'Vivo T1X', platform: 'Android', os: 'OS-13' },
+    { name: 'iPhone 14', platform: 'iOS', os: 'OS-18' },
+    { name: 'iPhone 13', platform: 'iOS', os: 'OS-17' },
+    { name: 'iPhone 16e4', platform: 'iOS', os: 'OS-18.5' },
+    { name: 'iPhone 16e3', platform: 'iOS', os: 'OS-26' },
+    { name: 'iPhone 6S-1', platform: 'iOS', os: 'OS-15' },
+    { name: 'iPhone 6S-2', platform: 'iOS', os: 'OS-15' }
+  ];
+
+  function ensureSeeded(){
+    var existingNames = devices.map(function(d){ return d.name.trim().toLowerCase(); });
+    var added = false;
+    SEED_DEVICES.forEach(function(sd){
+      if(existingNames.indexOf(sd.name.trim().toLowerCase()) === -1){
+        devices.push({ id: uid(), name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', usedBy: '', lastUsedBy: '', updatedAt: Date.now() });
+        existingNames.push(sd.name.trim().toLowerCase());
+        added = true;
+      }
     });
-    render();
-    setSync('ok', 'Synced');
-    autoFreeStale();
+    return added;
+  }
+
+  // Any device left "in use" for longer than AUTO_FREE_MS is automatically
+  // marked free again. The person who had it is preserved as lastUsedBy so
+  // the card can still show who had it last.
+  function autoFreeStale(){
+    var now = Date.now();
+    var changed = false;
+    devices.forEach(function(d){
+      if(d.status === 'use' && typeof d.updatedAt === 'number' && (now - d.updatedAt) > AUTO_FREE_MS){
+        d.lastUsedBy = d.usedBy || d.lastUsedBy || '';
+        d.usedBy = '';
+        d.status = 'free';
+        d.updatedAt = now;
+        d.autoFreed = true;
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  onSnapshot(deviceDocRef, function(snap){
+    applyingRemote = true;
+    if(snap.exists()){
+      devices = (snap.data() && snap.data().devices) ? snap.data().devices : [];
+      var seeded = ensureSeeded();
+      var freed = autoFreeStale();
+      render();
+      setSync('ok', 'Synced');
+      applyingRemote = false;
+      if(seeded || freed) save();
+    }else{
+      devices = [];
+      ensureSeeded();
+      render();
+      applyingRemote = false;
+      save();
+    }
   }, function(err){
     console.error('Firestore listen error', err);
     setSync('error', 'Sync failed');
   });
 
-  // Writes only the fields that changed for ONE device's own document.
-  // Because this never touches other devices' documents, two teammates
-  // acting on different devices at the same time can never clobber
-  // each other's changes.
-  async function updateDevice(id, fields, maxAttempts){
-    maxAttempts = maxAttempts || 3;
-    pendingWrites[id] = true;
-    render();
+  // Belt-and-braces client-side sweep so a device frees itself even if no
+  // one touches the shared doc in the meantime (e.g. tab left open for days).
+  setInterval(function(){
+    if(applyingRemote) return;
+    if(autoFreeStale()){
+      render();
+      save();
+    }
+  }, 5 * 60 * 1000);
+
+  var saveChain = Promise.resolve();
+  function save(){
+    saveChain = saveChain.then(function(){ return saveWithRetry(3); });
+    return saveChain;
+  }
+
+  async function saveWithRetry(maxAttempts){
+    var snapshot = devices.slice();
     setSync('saving', 'Saving');
     for(var attempt = 1; attempt <= maxAttempts; attempt++){
       try{
-        await updateDoc(doc(db, 'deviceBay', id), fields);
+        await setDoc(deviceDocRef, { devices: snapshot });
         setSync('ok', 'Synced');
-        delete pendingWrites[id];
-        render();
-        return true;
+        return;
       }catch(e){
-        console.error('Firestore update error', e);
+        console.error('Firestore save error', e);
         if(attempt < maxAttempts){
           await new Promise(function(r){ setTimeout(r, 500 * attempt); });
         }else{
+          try{ localStorage.setItem('devices_local_backup', JSON.stringify(snapshot)); }catch(e2){}
           setSync('error', 'Sync failed');
-          errorBanner.classList.add('show');
-          delete pendingWrites[id];
-          render();
-          return false;
         }
       }
     }
   }
 
-  document.getElementById('dismissError').addEventListener('click', function(){
-    errorBanner.classList.remove('show');
+  document.getElementById('retrySync').addEventListener('click', function(){
+    save();
   });
-
-  // Runs after every snapshot: any device stuck on "use" past AUTO_FREE_MS
-  // gets freed. Each device is its own independent write, so this is safe
-  // to run from multiple open tabs at once without stepping on other data.
-  function autoFreeStale(){
-    var now = Date.now();
-    devices.forEach(function(d){
-      if(d.status === 'use' && d.updatedAt && (now - d.updatedAt) > AUTO_FREE_MS && !pendingWrites[d.id]){
-        updateDevice(d.id, {
-          status: 'free',
-          usedBy: '',
-          lastUsedBy: d.usedBy || d.lastUsedBy || '',
-          updatedAt: now
-        });
-      }
-    });
-  }
-  setInterval(autoFreeStale, 5 * 60 * 1000);
 
   function updateStats(){
     document.getElementById('statTotal').textContent = devices.length;
@@ -333,7 +391,6 @@
 
   function cardHtml(d){
     var isFree = d.status === 'free';
-    var busy = !!pendingWrites[d.id];
     return '' +
       '<div class="card" data-id="' + d.id + '">' +
         '<div class="card-top">' +
@@ -342,7 +399,7 @@
         '<div class="device-name">' + esc(d.name) + '</div>' +
         lastUsedLineHtml(d) +
         '<div class="device-meta"><span class="mono">' + esc(d.os||'') + '</span>' + (d.tag ? '<span class="tag mono">#' + esc(d.tag) + '</span>' : '') + '</div>' +
-        '<button class="toggle-btn ' + (isFree?'mark-use':'mark-free') + '" data-toggle="' + d.id + '"' + (busy?' disabled':'') + '>' + (isFree ? 'Mark in use' : 'Mark free') + '</button>' +
+        '<button class="toggle-btn ' + (isFree?'mark-use':'mark-free') + '" data-toggle="' + d.id + '">' + (isFree ? 'Mark in use' : 'Mark free') + '</button>' +
       '</div>';
   }
 
@@ -360,7 +417,7 @@
     });
 
     if(devices.length === 0){
-      gridWrap.innerHTML = '<div class="empty"><h3>The bay is empty</h3><p>Add devices from the Firebase console (Firestore \u2192 deviceBay collection \u2192 Add document).</p></div>';
+      gridWrap.innerHTML = '<div class="empty"><h3>The bay is empty</h3><p>Add your first device to start tracking it.</p></div>';
       return;
     }
     if(list.length === 0){
@@ -392,20 +449,23 @@
   }
 
   gridWrap.addEventListener('click', function(e){
-    var toggleBtn = e.target.closest('[data-toggle]');
-    if(!toggleBtn || toggleBtn.disabled) return;
-    var id = toggleBtn.getAttribute('data-toggle');
-    var dev = devices.find(function(x){return x.id===id});
-    if(!dev) return;
-    if(dev.status === 'free'){
-      openUseModal(id);
-    }else{
-      updateDevice(id, {
-        status: 'free',
-        usedBy: '',
-        lastUsedBy: dev.usedBy || dev.lastUsedBy || '',
-        updatedAt: Date.now()
-      });
+    var toggleId = e.target.closest('[data-toggle]');
+    var removeId = e.target.closest('[data-remove]');
+    if(toggleId){
+      var id = toggleId.getAttribute('data-toggle');
+      var dev = devices.find(function(x){return x.id===id});
+      if(dev){
+        if(dev.status === 'free'){
+          openUseModal(id);
+        }else{
+          dev.lastUsedBy = dev.usedBy || dev.lastUsedBy || '';
+          dev.status = 'free';
+          dev.usedBy = '';
+          dev.updatedAt = Date.now();
+          render();
+          save();
+        }
+      }
     }
   });
 
@@ -433,12 +493,13 @@
       useQaName.focus();
       return;
     }
-    if(pendingUseId){
-      updateDevice(pendingUseId, {
-        status: 'use',
-        usedBy: name,
-        updatedAt: Date.now()
-      });
+    var dev = devices.find(function(x){return x.id===pendingUseId});
+    if(dev){
+      dev.status = 'use';
+      dev.usedBy = name;
+      dev.updatedAt = Date.now();
+      render();
+      save();
     }
     closeUseModal();
   });
