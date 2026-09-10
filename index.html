@@ -237,7 +237,9 @@
   }
 
   onSnapshot(devicesCol, function(snap){
-    devices = snap.docs.map(function(d){
+    devices = snap.docs
+      .filter(function(d){ return d.id !== 'main'; }) // skip the old leftover deviceBay/main doc (pre-restructure array data)
+      .map(function(d){
       var data = d.data();
       return {
         id: d.id,
