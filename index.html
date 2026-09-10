@@ -232,8 +232,6 @@
   var db = getFirestore(fbApp);
   var deviceDocRef = doc(db, "deviceBay", "main");
 
-  var AUTO_FREE_MS = 24 * 60 * 60 * 1000; // 24 hours
-
   var devices = [];
   var statusFilter = 'all';
   var platformFilter = 'all';
@@ -291,35 +289,15 @@
     return added;
   }
 
-  // Any device left "in use" for longer than AUTO_FREE_MS is automatically
-  // marked free again. The person who had it is preserved as lastUsedBy so
-  // the card can still show who had it last.
-  function autoFreeStale(){
-    var now = Date.now();
-    var changed = false;
-    devices.forEach(function(d){
-      if(d.status === 'use' && typeof d.updatedAt === 'number' && (now - d.updatedAt) > AUTO_FREE_MS){
-        d.lastUsedBy = d.usedBy || d.lastUsedBy || '';
-        d.usedBy = '';
-        d.status = 'free';
-        d.updatedAt = now;
-        d.autoFreed = true;
-        changed = true;
-      }
-    });
-    return changed;
-  }
-
   onSnapshot(deviceDocRef, function(snap){
     applyingRemote = true;
     if(snap.exists()){
       devices = (snap.data() && snap.data().devices) ? snap.data().devices : [];
       var seeded = ensureSeeded();
-      var freed = autoFreeStale();
       render();
       setSync('ok', 'Synced');
       applyingRemote = false;
-      if(seeded || freed) save();
+      if(seeded) save();
     }else{
       devices = [];
       ensureSeeded();
@@ -331,16 +309,6 @@
     console.error('Firestore listen error', err);
     setSync('error', 'Sync failed');
   });
-
-  // Belt-and-braces client-side sweep so a device frees itself even if no
-  // one touches the shared doc in the meantime (e.g. tab left open for days).
-  setInterval(function(){
-    if(applyingRemote) return;
-    if(autoFreeStale()){
-      render();
-      save();
-    }
-  }, 5 * 60 * 1000);
 
   var saveChain = Promise.resolve();
   function save(){
