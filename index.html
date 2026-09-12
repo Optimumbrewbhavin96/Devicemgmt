@@ -98,8 +98,15 @@
   #dmd .group{margin-bottom:24px}
   #dmd .group-head{
     position:relative;display:flex;align-items:center;gap:7px;margin-bottom:14px;
-    color:var(--text-dim);font-size:13px;font-weight:500;
+    color:var(--text-dim);font-size:13px;font-weight:500;cursor:pointer;user-select:none;
   }
+  #dmd .group-head:hover span.label{color:var(--text)}
+  #dmd .group-head .chevron{
+    position:relative;z-index:1;background:var(--bg);font-size:14px;color:var(--text-faint);
+    margin-left:auto;transition:transform .15s;
+  }
+  #dmd .group-head.collapsed .chevron{transform:rotate(-90deg)}
+  #dmd .group.collapsed .grid{display:none}
   #dmd .group-head::after{
     content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line-soft);z-index:0;
   }
@@ -245,6 +252,7 @@
   var platformFilter = 'all';
   var query = '';
   var hasLoadedOnce = false;
+  var collapsedGroups = {}; // e.g. { Android: true } when that group is collapsed
 
   var gridWrap = document.getElementById('gridWrap');
   var syncStatus = document.getElementById('syncStatus');
@@ -565,26 +573,34 @@
     var iosList = list.filter(function(d){ return d.platform === 'iOS'; });
     var otherList = list.filter(function(d){ return d.platform !== 'Android' && d.platform !== 'iOS'; });
 
+    function groupHtml(key, icon, label, groupList){
+      if(!groupList.length) return '';
+      var isCollapsed = !!collapsedGroups[key];
+      return '' +
+        '<div class="group' + (isCollapsed ? ' collapsed' : '') + '">' +
+          '<div class="group-head' + (isCollapsed ? ' collapsed' : '') + '" data-group="' + key + '" role="button" tabindex="0" aria-expanded="' + (!isCollapsed) + '">' +
+            '<span class="label"><i class="ti ' + icon + '" aria-hidden="true"></i>' + label + '<span class="count">' + groupList.length + '</span></span>' +
+            '<i class="ti ti-chevron-down chevron" aria-hidden="true"></i>' +
+          '</div>' +
+          '<div class="grid">' + groupList.map(cardHtml).join('') + '</div>' +
+        '</div>';
+    }
+
     var html = '';
-    if(androidList.length){
-      html += '<div class="group"><div class="group-head"><span class="label"><i class="ti ti-android" aria-hidden="true"></i>Android<span class="count">' + androidList.length + '</span></span></div><div class="grid">';
-      androidList.forEach(function(d){ html += cardHtml(d); });
-      html += '</div></div>';
-    }
-    if(iosList.length){
-      html += '<div class="group"><div class="group-head"><span class="label"><i class="ti ti-brand-apple" aria-hidden="true"></i>iOS<span class="count">' + iosList.length + '</span></span></div><div class="grid">';
-      iosList.forEach(function(d){ html += cardHtml(d); });
-      html += '</div></div>';
-    }
-    if(otherList.length){
-      html += '<div class="group"><div class="group-head"><span class="label"><i class="ti ti-device-mobile" aria-hidden="true"></i>Other<span class="count">' + otherList.length + '</span></span></div><div class="grid">';
-      otherList.forEach(function(d){ html += cardHtml(d); });
-      html += '</div></div>';
-    }
+    html += groupHtml('Android', 'ti-android', 'Android devices list', androidList);
+    html += groupHtml('iOS', 'ti-brand-apple', 'iPhone Device list', iosList);
+    html += groupHtml('Other', 'ti-device-mobile', 'Other devices list', otherList);
     gridWrap.innerHTML = html;
   }
 
   gridWrap.addEventListener('click', function(e){
+    var groupHead = e.target.closest('[data-group]');
+    if(groupHead){
+      var key = groupHead.getAttribute('data-group');
+      collapsedGroups[key] = !collapsedGroups[key];
+      render();
+      return;
+    }
     var toggleId = e.target.closest('[data-toggle]');
     if(toggleId){
       var id = toggleId.getAttribute('data-toggle');
@@ -596,6 +612,17 @@
           commitDeviceChange(id, mutateMarkFree);
         }
       }
+    }
+  });
+
+  gridWrap.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    var groupHead = e.target.closest('[data-group]');
+    if(groupHead){
+      e.preventDefault();
+      var key = groupHead.getAttribute('data-group');
+      collapsedGroups[key] = !collapsedGroups[key];
+      render();
     }
   });
 
