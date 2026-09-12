@@ -6,7 +6,7 @@
 <title>QA Device Bay</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314171a'/%3E%3Crect x='20' y='10' width='24' height='40' rx='5' fill='none' stroke='%23d9a441' stroke-width='3.5'/%3E%3Cline x1='27' y1='42' x2='37' y2='42' stroke='%23d9a441' stroke-width='3.5' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='45' r='13' fill='%2355c98a'/%3E%3Cpath d='M39.5 45.5l3.5 3.5 7-7' fill='none' stroke='%2314171a' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 </head>
-<body style="margin:0;background:#14171a;">
+<body style="margin:0;background:#14171a;" id="pageBody">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
@@ -29,6 +29,25 @@
     --use-dim:#332711;
     --use-surface:#241f16;
     --danger:#e2685a;
+  }
+  #dmd.light{
+    --bg:#f3f4f6;
+    --panel:#ffffff;
+    --panel-2:#eef0f3;
+    --panel-raised:#e6e9ee;
+    --line:#d6dae0;
+    --line-soft:#e3e6ea;
+    --text:#1c2126;
+    --text-dim:#5c6670;
+    --text-faint:#8992a0;
+    --accent:#b9812f;
+    --accent-dim:#f4e4c2;
+    --free:#2f9c68;
+    --free-dim:#e2f5ea;
+    --use:#b57c1f;
+    --use-dim:#faedd2;
+    --use-surface:#fbf3e2;
+    --danger:#c94c3f;
   }
   *{box-sizing:border-box}
   @media (prefers-reduced-motion: reduce){
@@ -109,8 +128,37 @@
     transition:background .12s,color .12s;display:flex;align-items:center;gap:6px;
   }
   #dmd .segmented .chip.active{background:var(--panel-raised);color:var(--text)}
-  #dmd .segmented.view-toggle .chip{padding:7px 11px;font-size:15px}
   #dmd .platform-row{margin-bottom:20px}
+
+  #dmd .icon-btn{
+    background:var(--panel);border:1px solid var(--line);color:var(--text-dim);
+    border-radius:9px;width:38px;height:38px;flex-shrink:0;cursor:pointer;font-size:17px;
+    display:flex;align-items:center;justify-content:center;transition:border-color .12s,color .12s;
+  }
+  #dmd .icon-btn:hover{border-color:var(--text-dim);color:var(--text)}
+
+  #dmd .settings-box{max-width:360px}
+  #dmd .setting-row{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px 0;border-bottom:1px solid var(--line-soft);
+  }
+  #dmd .setting-row:first-of-type{padding-top:2px}
+  #dmd .setting-row:last-of-type{border-bottom:none}
+  #dmd .setting-info strong{display:block;font-size:14px;color:var(--text);margin-bottom:3px;font-weight:600}
+  #dmd .setting-info p{margin:0;font-size:12px;color:var(--text-dim);line-height:1.4;max-width:230px}
+
+  #dmd .switch{position:relative;display:inline-block;width:40px;height:23px;flex-shrink:0}
+  #dmd .switch input{opacity:0;width:0;height:0;position:absolute}
+  #dmd .switch .slider{
+    position:absolute;inset:0;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:24px;cursor:pointer;transition:background .15s,border-color .15s;
+  }
+  #dmd .switch .slider::before{
+    content:"";position:absolute;height:15px;width:15px;left:3px;top:3px;
+    background:var(--text-dim);border-radius:50%;transition:transform .15s,background .15s;
+  }
+  #dmd .switch input:checked + .slider{background:var(--accent-dim);border-color:var(--accent)}
+  #dmd .switch input:checked + .slider::before{transform:translateX(17px);background:var(--accent)}
 
   /* ---------- Cards ---------- */
   #dmd .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(224px,1fr));gap:14px}
@@ -154,8 +202,8 @@
   #dmd .action-btn:hover{filter:brightness(1.1)}
   #dmd .action-btn:active{transform:scale(.97)}
   #dmd .action-btn.take{background:var(--accent);border-color:var(--accent);color:#20160a}
-  #dmd .action-btn.release{background:transparent;border-color:var(--line);color:var(--text-dim)}
-  #dmd .action-btn.release:hover{border-color:var(--text-dim);color:var(--text)}
+  #dmd .action-btn.release{background:var(--free-dim);border-color:var(--free);color:var(--free)}
+  #dmd .action-btn.release:hover{filter:brightness(1.15)}
   #dmd .action-btn.handoff{background:transparent;border-color:var(--use);color:var(--use)}
   #dmd .action-btn.locked{background:transparent;border-color:var(--line-soft);color:var(--text-faint);cursor:default}
   #dmd .action-btn.locked:hover{filter:none}
@@ -179,7 +227,7 @@
     font-family:'Inter',sans-serif;white-space:nowrap;
   }
   #dmd table.compact .t-action.take{background:var(--accent);border-color:var(--accent);color:#20160a}
-  #dmd table.compact .t-action.release{background:transparent;border-color:var(--line);color:var(--text-dim)}
+  #dmd table.compact .t-action.release{background:var(--free-dim);border-color:var(--free);color:var(--free)}
   #dmd table.compact .t-action.handoff{background:transparent;border-color:var(--use);color:var(--use)}
   #dmd table.compact .t-action.locked{background:transparent;border-color:var(--line-soft);color:var(--text-faint);cursor:default}
   #dmd table.compact .status-pill{white-space:nowrap}
@@ -226,10 +274,9 @@
       <i class="ti ti-search" aria-hidden="true"></i>
       <input type="text" id="search" placeholder="Search devices or tag id">
     </div>
-    <div class="segmented view-toggle" role="group" aria-label="View mode">
-      <button class="chip active" data-view="grid" aria-pressed="true" title="Card grid"><i class="ti ti-layout-grid" aria-hidden="true"></i></button>
-      <button class="chip" data-view="table" aria-pressed="false" title="Compact table"><i class="ti ti-table" aria-hidden="true"></i></button>
-    </div>
+    <button class="icon-btn" id="settingsOpen" type="button" title="Settings" aria-label="Settings">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+    </button>
   </div>
   <div class="platform-row segmented">
     <button class="chip active" data-platform="all" aria-pressed="true">All platforms</button>
@@ -251,6 +298,35 @@
       <div class="actions">
         <button class="btn-ghost" id="nameModalCancel" type="button">Cancel</button>
         <button class="btn-primary" id="nameModalConfirm" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box settings-box" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+      <h3 id="settingsModalTitle">Settings</h3>
+      <div class="setting-row">
+        <div class="setting-info">
+          <strong>Compact table view</strong>
+          <p>Show devices as a dense scannable table instead of the card grid.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="viewSwitch">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <strong>Dark mode</strong>
+          <p>Toggle the dashboard between dark and light appearance.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="themeSwitch">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn-ghost" id="settingsClose" type="button">Close</button>
       </div>
     </div>
   </div>
@@ -300,11 +376,8 @@
 
   try{ viewMode = localStorage.getItem('qa_bay_view') || 'grid'; }catch(e){}
   function syncViewToggleUI(mode){
-    document.querySelectorAll('.view-toggle .chip').forEach(function(c){
-      var active = c.getAttribute('data-view') === mode;
-      c.classList.toggle('active', active);
-      c.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
+    var sw = document.getElementById('viewSwitch');
+    if(sw) sw.checked = (mode === 'table');
   }
   function setViewMode(mode){
     viewMode = mode;
@@ -316,6 +389,21 @@
   // render before the first Firestore snapshot (or local backup) arrives -
   // that render already happens via onSnapshot / restoreLocalBackupIfAny.
   syncViewToggleUI(viewMode);
+
+  // ---------- Theme (dark/light, local per-browser preference) ----------
+  var dmdEl = document.getElementById('dmd');
+  var pageBody = document.getElementById('pageBody');
+  var theme = 'dark';
+  try{ theme = localStorage.getItem('qa_bay_theme') || 'dark'; }catch(e){}
+  function applyTheme(t){
+    theme = t;
+    dmdEl.classList.toggle('light', t === 'light');
+    pageBody.style.background = (t === 'light') ? '#f3f4f6' : '#14171a';
+    var sw = document.getElementById('themeSwitch');
+    if(sw) sw.checked = (t === 'dark');
+    try{ localStorage.setItem('qa_bay_theme', t); }catch(e){}
+  }
+  applyTheme(theme);
 
   // If a previous session failed to sync and stashed a local backup, show it
   // immediately instead of a blank loading state. It gets superseded the
@@ -723,22 +811,34 @@
     if(!dev) return;
     var act = actionSpec(dev);
     if(act.kind === 'take'){
-      openNameModal('claim', id);
+      if(currentUser){
+        // Identity already known - assign the device straight to this
+        // user, no name popup needed.
+        commitDeviceChange(id, function(d){ mutateMarkUse(d, currentUser); });
+      }else{
+        openNameModal('claim', id);
+      }
     }else if(act.kind === 'release'){
       commitDeviceChange(id, mutateMarkFree);
     }else if(act.kind === 'handoff'){
-      openNameModal('handoff', id);
+      if(currentUser){
+        commitDeviceChange(id, function(d){ mutateRequestHandoff(d, currentUser); });
+      }else{
+        openNameModal('handoff', id);
+      }
     }
   });
 
   // ---------- Name modal (reused for claiming a device, requesting a
   // handoff, and setting your local identity) ----------
   var nameModal = document.getElementById('nameModal');
+  var settingsModal = document.getElementById('settingsModal');
   var nameModalTitle = document.getElementById('nameModalTitle');
   var nameModalDesc = document.getElementById('nameModalDesc');
   var nameModalInput = document.getElementById('nameModalInput');
   var nameModalError = document.getElementById('nameModalError');
   var nameModalConfirm = document.getElementById('nameModalConfirm');
+  var nameModalCancel = document.getElementById('nameModalCancel');
   var pendingMode = null;
   var pendingId = null;
 
@@ -755,20 +855,30 @@
       nameModalTitle.textContent = 'Request a handoff';
       nameModalDesc.textContent = "Let the current holder know you need this device. They'll see your name on the card.";
       nameModalConfirm.textContent = 'Request handoff';
+    }else if(mode === 'identity-required'){
+      nameModalTitle.textContent = "What's your name?";
+      nameModalDesc.textContent = "Enter your name to access the device bay. It's used to track who's holding each device.";
+      nameModalConfirm.textContent = 'Continue';
     }else{
       nameModalTitle.textContent = 'Set your name';
       nameModalDesc.textContent = "Used locally on this device so the bay knows which cards are yours to release.";
       nameModalConfirm.textContent = 'Save';
     }
+    // The initial name gate can't be dismissed without entering a name -
+    // there's nothing to fall back to, so hide the escape hatches.
+    var required = (mode === 'identity-required');
+    nameModalCancel.style.display = required ? 'none' : '';
+    nameModal.classList.toggle('required', required);
     nameModal.classList.add('open');
     nameModalInput.focus();
   }
   function closeNameModal(){
+    if(pendingMode === 'identity-required') return;
     nameModal.classList.remove('open');
     pendingMode = null;
     pendingId = null;
   }
-  document.getElementById('nameModalCancel').addEventListener('click', closeNameModal);
+  nameModalCancel.addEventListener('click', closeNameModal);
   document.getElementById('identityChange').addEventListener('click', function(){
     openNameModal('identity', null);
   });
@@ -785,6 +895,7 @@
     }else if(pendingMode === 'handoff' && pendingId){
       commitDeviceChange(pendingId, function(d){ mutateRequestHandoff(d, name); });
     }
+    pendingMode = null; // the gate is satisfied now - allow the modal to close
     closeNameModal();
   });
   nameModalInput.addEventListener('keydown', function(e){
@@ -834,11 +945,28 @@
     });
   });
 
-  document.querySelectorAll('.view-toggle .chip').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      setViewMode(chip.getAttribute('data-view'));
-    });
+  document.getElementById('settingsOpen').addEventListener('click', function(){
+    settingsModal.classList.add('open');
   });
+  document.getElementById('settingsClose').addEventListener('click', function(){
+    settingsModal.classList.remove('open');
+  });
+  settingsModal.addEventListener('click', function(e){
+    if(e.target === settingsModal){ settingsModal.classList.remove('open'); }
+  });
+  document.getElementById('viewSwitch').addEventListener('change', function(e){
+    setViewMode(e.target.checked ? 'table' : 'grid');
+  });
+  document.getElementById('themeSwitch').addEventListener('change', function(e){
+    applyTheme(e.target.checked ? 'dark' : 'light');
+  });
+
+  // Block access to the device bay until a name is entered - this prompt
+  // has no cancel/escape and must be completed before anything else on the
+  // page can be used.
+  if(!currentUser){
+    openNameModal('identity-required', null);
+  }
 </script>
 
 </body>
