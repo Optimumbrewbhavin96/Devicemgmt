@@ -455,9 +455,37 @@
     return cutoff.getTime();
   }
 
-  // Auto-frees any device still "in use" from before the last 10 PM cutoff.
-  // Only ever edits status/usedBy/usedSince/totalUsedMs fields on EXISTING
-  // entries in `devices` - never adds, removes, or reorders devices.
+  // The next 10:00 PM strictly after `now` - i.e. the end of the "today"
+  // window that a session starting now would fall into.
+  function getPeriodEnd(now){
+    var cutoff = new Date(now);
+    cutoff.setHours(22, 0, 0, 0);
+    if(cutoff.getTime() <= now){
+      cutoff.setDate(cutoff.getDate() + 1);
+    }
+    return cutoff.getTime();
+  }
+
+  // `totalUsedMs` is a DAILY total (resets every 10 PM), not a lifetime one.
+  // `totalPeriodEnd` records which 10PM-to-10PM window the current
+  // totalUsedMs value belongs to. Whenever we're about to add elapsed usage
+  // that belongs to a different window than the one already stored, the
+  // total is reset to 0 first instead of being added onto stale data.
+  function addToDailyTotal(d, elapsedMs, periodEndTs){
+    if(d.totalPeriodEnd !== periodEndTs){
+      d.totalUsedMs = 0;
+      d.totalPeriodEnd = periodEndTs;
+    }
+    d.totalUsedMs = (d.totalUsedMs || 0) + elapsedMs;
+  }
+
+  // Auto-frees any device still "in use" from before the last 10 PM cutoff,
+  // and separately zeroes out the daily total of any FREE device whose
+  // stored total belongs to a window that has already ended (so idle
+  // devices also reset at 10 PM, not just ones that were mid-session).
+  // Only ever edits status/usedBy/usedSince/totalUsedMs/totalPeriodEnd
+  // fields on EXISTING entries in `devices` - never adds, removes, or
+  // reorders devices.
   function applyAutoFree(){
     var now = Date.now();
     var cutoff = getMostRecentCutoff(now);
@@ -465,7 +493,7 @@
     devices.forEach(function(d){
       if(d.status === 'use' && d.usedSince && d.usedSince < cutoff){
         var elapsed = cutoff - d.usedSince;
-        d.totalUsedMs = (d.totalUsedMs || 0) + elapsed;
+        addToDailyTotal(d, elapsed, cutoff);
         d.lastDurationMs = elapsed;
         d.lastUsedBy = d.usedBy || d.lastUsedBy || '';
         d.status = 'free';
@@ -473,6 +501,10 @@
         d.usedSince = null;
         d.handoffRequestedBy = '';
         d.updatedAt = now;
+        changed = true;
+      }else if(d.status === 'free' && d.totalPeriodEnd && now >= d.totalPeriodEnd && d.totalUsedMs){
+        d.totalUsedMs = 0;
+        d.totalPeriodEnd = null;
         changed = true;
       }
     });
@@ -636,7 +668,7 @@
   function mutateMarkFree(dev){
     var now = Date.now();
     var elapsed = dev.usedSince ? (now - dev.usedSince) : 0;
-    dev.totalUsedMs = (dev.totalUsedMs || 0) + elapsed;
+    addToDailyTotal(dev, elapsed, getPeriodEnd(now));
     dev.lastDurationMs = elapsed;
     dev.lastUsedBy = dev.usedBy || dev.lastUsedBy || '';
     dev.status = 'free';
@@ -695,7 +727,7 @@
       lines += '<span class="empty-note">No usage yet</span>';
     }
     if(d.totalUsedMs){
-      lines += '<span class="total-used">Total ' + formatDuration(d.totalUsedMs) + '</span>';
+      lines += '<span class="total-used">Today ' + formatDuration(d.totalUsedMs) + '</span>';
     }
     return lines;
   }
