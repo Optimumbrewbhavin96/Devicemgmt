@@ -479,18 +479,18 @@
     d.totalUsedMs = (d.totalUsedMs || 0) + elapsedMs;
   }
 
-  // Auto-frees any device still "in use" from before the last 10 PM cutoff,
-  // and separately zeroes out the daily total of any FREE device whose
-  // stored total belongs to a window that has already ended (so idle
-  // devices also reset at 10 PM, not just ones that were mid-session).
-  // Only ever edits status/usedBy/usedSince/totalUsedMs/totalPeriodEnd
-  // fields on EXISTING entries in `devices` - never adds, removes, or
-  // reorders devices.
-  function applyAutoFree(){
+  // Applies the 10PM auto-free/reset rules to an arbitrary devices array,
+  // mutating entries in place. Returns whether anything changed. Only ever
+  // edits status/usedBy/usedSince/totalUsedMs/totalPeriodEnd fields on
+  // EXISTING entries in the given list - never adds, removes, or reorders
+  // devices. Takes an explicit list (rather than always using the global
+  // `devices`) so it can be applied inside a transaction against a freshly
+  // re-read remote copy, see autoFreeSaveTransaction() below.
+  function applyAutoFreeTo(list){
     var now = Date.now();
     var cutoff = getMostRecentCutoff(now);
     var changed = false;
-    devices.forEach(function(d){
+    list.forEach(function(d){
       if(d.status === 'use' && d.usedSince && d.usedSince < cutoff){
         var elapsed = cutoff - d.usedSince;
         addToDailyTotal(d, elapsed, cutoff);
@@ -509,6 +509,14 @@
       }
     });
     return changed;
+  }
+
+  // Local-only wrapper: applies auto-free to the in-memory `devices` array
+  // so the optimistic UI (elapsed timers, free/in-use state) stays correct
+  // between remote syncs. Persisting the result now always goes through
+  // autoFreeSaveTransaction() instead of a raw save() - see below.
+  function applyAutoFree(){
+    return applyAutoFreeTo(devices);
   }
 
   var SEED_DEVICES = [
@@ -565,7 +573,11 @@
       setSync('ok', 'Synced');
       hasLoadedOnce = true;
       try{ localStorage.removeItem('devices_local_backup'); }catch(e){}
-      if(autoFreed) save();
+      // FIX: use the transactional auto-free save (re-reads fresh before
+      // writing) instead of save(), which would push this tab's possibly
+      // stale in-memory `devices` array as a full overwrite and could wipe
+      // out adds/edits/removals other tabs made in the meantime.
+      if(autoFreed) autoFreeSaveTransaction();
     }else{
       devices = [];
       ensureSeeded();
@@ -589,7 +601,9 @@
   setInterval(function(){
     var changed = applyAutoFree();
     render();
-    if(changed) save();
+    // FIX: same reasoning as above - go through the transactional save so
+    // a tab with a stale local copy can't clobber other tabs' changes.
+    if(changed) autoFreeSaveTransaction();
   }, 30000);
 
   var saveChain = Promise.resolve();
@@ -659,6 +673,44 @@
           await new Promise(function(r){ setTimeout(r, 500 * attempt); });
         }else{
           try{ localStorage.setItem('devices_local_backup', JSON.stringify(devices)); }catch(e2){}
+          setSync('error', 'Sync failed');
+        }
+      }
+    }
+  }
+
+  // FIX (new): applies the 10PM auto-free/reset rules against a FRESHLY
+  // re-read remote copy of the devices array inside a transaction, then
+  // writes only that merged result back - exactly the same pattern as
+  // commitDeviceChange() above, just applied to every device instead of
+  // one. This replaces the old behaviour where the periodic auto-free tick
+  // called save(), which did a raw setDoc() of whatever was sitting in this
+  // tab's local `devices` array. That was the actual cause of devices
+  // reappearing after deletion, edits getting reverted, and recently
+  // added/updated devices vanishing: any tab whose local copy was even
+  // slightly behind (a missed snapshot, a backgrounded tab, a slow network)
+  // would, on its next 30s tick, silently overwrite everyone else's
+  // meanwhile-made changes with its own stale snapshot. Re-reading inside a
+  // transaction before writing closes that race.
+  async function autoFreeSaveTransaction(){
+    setSync('saving', 'Saving');
+    var maxAttempts = 3;
+    for(var attempt = 1; attempt <= maxAttempts; attempt++){
+      try{
+        await runTransaction(db, async function(tx){
+          var snap = await tx.get(deviceDocRef);
+          var remoteDevices = (snap.exists() && snap.data() && snap.data().devices) ? snap.data().devices.slice() : devices.slice();
+          applyAutoFreeTo(remoteDevices);
+          tx.set(deviceDocRef, { devices: remoteDevices });
+        });
+        setSync('ok', 'Synced');
+        try{ localStorage.removeItem('devices_local_backup'); }catch(e){}
+        return;
+      }catch(e){
+        console.error('Firestore auto-free transaction error', e);
+        if(attempt < maxAttempts){
+          await new Promise(function(r){ setTimeout(r, 500 * attempt); });
+        }else{
           setSync('error', 'Sync failed');
         }
       }
