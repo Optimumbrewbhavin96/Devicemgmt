@@ -94,7 +94,7 @@
   #dmd .banner-error button{background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
 
   /* ---------- Stat pills (double as status filter) ---------- */
-  #dmd .stat-row{display:flex;gap:8px}
+  #dmd .stat-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
   #dmd .stat-pill{
     display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
     border-radius:20px;padding:6px 13px 6px 11px;font-size:12.5px;color:var(--text-dim);cursor:pointer;
@@ -107,9 +107,12 @@
   #dmd .stat-pill.free.active b{color:var(--free)}
   #dmd .stat-pill.use.active{border-color:var(--use);background:var(--use-dim);color:var(--use)}
   #dmd .stat-pill.use.active b{color:var(--use)}
+  #dmd .stat-pill.mine.active{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
+  #dmd .stat-pill.mine.active b{color:var(--accent)}
   #dmd .stat-pill.total.active{border-color:var(--text-dim);background:var(--panel-raised);color:var(--text)}
   #dmd .legend-dot.free{background:var(--free)}
   #dmd .legend-dot.use{background:var(--use)}
+  #dmd .legend-dot.mine{background:var(--accent)}
   #dmd .legend-dot.total{background:var(--text-faint)}
 
   /* ---------- Toolbar ---------- */
@@ -136,6 +139,16 @@
     display:flex;align-items:center;justify-content:center;transition:border-color .12s,color .12s;
   }
   #dmd .icon-btn:hover{border-color:var(--text-dim);color:var(--text)}
+
+  #dmd .release-all-btn{
+    background:var(--free-dim);border:1px solid var(--free);color:var(--free);
+    border-radius:9px;padding:0 14px;height:38px;font-size:13px;font-weight:600;cursor:pointer;
+    font-family:'Inter',sans-serif;display:flex;align-items:center;gap:7px;white-space:nowrap;flex-shrink:0;
+    transition:filter .12s,opacity .12s;
+  }
+  #dmd .release-all-btn:hover{filter:brightness(1.15)}
+  #dmd .release-all-btn:disabled{opacity:.35;cursor:default;filter:none}
+  #dmd .release-all-btn.settings-variant{width:auto;height:auto;padding:8px 14px}
 
   #dmd .settings-box{max-width:360px}
   #dmd .setting-row{
@@ -168,6 +181,7 @@
     border-radius:13px;padding:15px 15px 14px;
   }
   #dmd .card.is-use{background:var(--use-surface);border-color:rgba(224,166,63,.35)}
+  #dmd .card.is-mine{border-color:var(--accent)}
 
   #dmd .card-row1{display:flex;justify-content:space-between;align-items:center;gap:8px}
   #dmd .status-pill{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 9px 3px 7px;border-radius:20px;flex-shrink:0}
@@ -180,6 +194,10 @@
     font-size:11px;font-weight:600;color:var(--text);background:var(--panel-raised);
     border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-family:'JetBrains Mono',monospace;
   }
+  #dmd .mine-pill{
+    font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-dim);
+    border:1px solid var(--accent);border-radius:6px;padding:3px 8px;
+  }
 
   #dmd .card-row2{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
   #dmd .device-name{font-size:16px;font-weight:600;letter-spacing:-.005em;line-height:1.3}
@@ -191,7 +209,6 @@
   #dmd .card-row3 i{font-size:13px;color:var(--text-faint)}
   #dmd .card-row3 .elapsed{color:var(--text-faint);font-family:'JetBrains Mono',monospace;font-size:11px}
   #dmd .card-row3 .handoff-note{color:var(--accent);font-size:11px;display:flex;align-items:center;gap:5px}
-  #dmd .card-row3 .total-used{color:var(--text-faint);font-size:11px;font-family:'JetBrains Mono',monospace}
   #dmd .card-row3 .empty-note{color:var(--text-faint)}
 
   #dmd .action-btn{
@@ -258,6 +275,7 @@
       <div class="stat-row">
         <button class="stat-pill free" id="pillFree" data-filter="free"><span class="legend-dot free"></span><b id="statFree">0</b> Free</button>
         <button class="stat-pill use" id="pillUse" data-filter="use"><span class="legend-dot use"></span><b id="statUse">0</b> In use</button>
+        <button class="stat-pill mine" id="pillMine" data-filter="mine"><span class="legend-dot mine"></span><b id="statMine">0</b> Mine</button>
         <button class="stat-pill total active" id="pillTotal" data-filter="all"><span class="legend-dot total"></span><b id="statTotal">0</b> Total</button>
       </div>
       <div class="sync" id="syncStatus"><span class="sdot"></span><span id="syncText">Loading</span></div>
@@ -272,8 +290,11 @@
   <div class="toolbar">
     <div class="search-wrap">
       <i class="ti ti-search" aria-hidden="true"></i>
-      <input type="text" id="search" placeholder="Search devices or tag id">
+      <input type="text" id="search" placeholder="Search devices, tag id, or holder name">
     </div>
+    <button class="release-all-btn" id="releaseAllBtn" type="button" title="Release every device checked out under your name">
+      <i class="ti ti-plug-x" aria-hidden="true"></i><span id="releaseAllBtnLabel">Release all mine</span>
+    </button>
     <button class="icon-btn" id="settingsOpen" type="button" title="Settings" aria-label="Settings">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
@@ -308,6 +329,13 @@
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-box settings-box" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
       <h3 id="settingsModalTitle">Settings</h3>
+      <div class="setting-row">
+        <div class="setting-info">
+          <strong>Release all your devices</strong>
+          <p>Free every device currently checked out under your name, in one tap.</p>
+        </div>
+        <button class="release-all-btn settings-variant" id="settingsReleaseAll" type="button">Release all</button>
+      </div>
       <div class="setting-row">
         <div class="setting-info">
           <strong>Compact table view</strong>
@@ -352,7 +380,7 @@
   var deviceDocRef = doc(db, "deviceBay", "main");
 
   var devices = [];
-  var statusFilter = 'all';
+  var statusFilter = 'all'; // 'all' | 'free' | 'use' | 'mine'
   var platformFilter = 'all';
   var query = '';
   var viewMode = 'grid';
@@ -434,66 +462,40 @@
   }
 
   function formatDuration(ms){
-    if(!ms || ms <= 0) return '0m';
+    if(!ms || ms <= 0) return '0 mins';
     var totalMin = Math.floor(ms / 60000);
     var h = Math.floor(totalMin / 60);
     var m = totalMin % 60;
-    if(h > 0) return h + 'h ' + m + 'm';
-    return m + 'm';
+    if(h > 0) return h + (h === 1 ? ' hr ' : ' hrs ') + m + (m === 1 ? ' min' : ' mins');
+    return m + (m === 1 ? ' min' : ' mins');
   }
   function formatTime(ts){
     return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
-  // Most recent 10:00 PM (local time) at or before `now`.
-  function getMostRecentCutoff(now){
+  // Most recent local midnight (00:00) at or before `now`.
+  function getMostRecentMidnight(now){
     var cutoff = new Date(now);
-    cutoff.setHours(22, 0, 0, 0);
-    if(cutoff.getTime() > now){
-      cutoff.setDate(cutoff.getDate() - 1);
-    }
+    cutoff.setHours(0, 0, 0, 0);
     return cutoff.getTime();
   }
 
-  // The next 10:00 PM strictly after `now` - i.e. the end of the "today"
-  // window that a session starting now would fall into.
-  function getPeriodEnd(now){
-    var cutoff = new Date(now);
-    cutoff.setHours(22, 0, 0, 0);
-    if(cutoff.getTime() <= now){
-      cutoff.setDate(cutoff.getDate() + 1);
-    }
-    return cutoff.getTime();
-  }
-
-  // `totalUsedMs` is a DAILY total (resets every 10 PM), not a lifetime one.
-  // `totalPeriodEnd` records which 10PM-to-10PM window the current
-  // totalUsedMs value belongs to. Whenever we're about to add elapsed usage
-  // that belongs to a different window than the one already stored, the
-  // total is reset to 0 first instead of being added onto stale data.
-  function addToDailyTotal(d, elapsedMs, periodEndTs){
-    if(d.totalPeriodEnd !== periodEndTs){
-      d.totalUsedMs = 0;
-      d.totalPeriodEnd = periodEndTs;
-    }
-    d.totalUsedMs = (d.totalUsedMs || 0) + elapsedMs;
-  }
-
-  // Applies the 10PM auto-free/reset rules to an arbitrary devices array,
+  // Applies the midnight auto-release rule to an arbitrary devices array,
   // mutating entries in place. Returns whether anything changed. Only ever
-  // edits status/usedBy/usedSince/totalUsedMs/totalPeriodEnd fields on
-  // EXISTING entries in the given list - never adds, removes, or reorders
-  // devices. Takes an explicit list (rather than always using the global
-  // `devices`) so it can be applied inside a transaction against a freshly
-  // re-read remote copy, see autoFreeSaveTransaction() below.
+  // edits status/usedBy/usedSince/lastUsedBy/lastDurationMs/handoffRequestedBy
+  // on EXISTING entries in the given list - never adds, removes, or
+  // reorders devices. Takes an explicit list (rather than always using the
+  // global `devices`) so it can be applied inside a transaction against a
+  // freshly re-read remote copy, see autoFreeSaveTransaction() below - the
+  // same "never blind-overwrite with a possibly-stale local snapshot"
+  // pattern commitDeviceChange() uses for manual actions.
   function applyAutoFreeTo(list){
     var now = Date.now();
-    var cutoff = getMostRecentCutoff(now);
+    var cutoff = getMostRecentMidnight(now);
     var changed = false;
     list.forEach(function(d){
       if(d.status === 'use' && d.usedSince && d.usedSince < cutoff){
         var elapsed = cutoff - d.usedSince;
-        addToDailyTotal(d, elapsed, cutoff);
         d.lastDurationMs = elapsed;
         d.lastUsedBy = d.usedBy || d.lastUsedBy || '';
         d.status = 'free';
@@ -502,21 +504,51 @@
         d.handoffRequestedBy = '';
         d.updatedAt = now;
         changed = true;
-      }else if(d.status === 'free' && d.totalPeriodEnd && now >= d.totalPeriodEnd && d.totalUsedMs){
-        d.totalUsedMs = 0;
-        d.totalPeriodEnd = null;
-        changed = true;
       }
     });
     return changed;
   }
 
-  // Local-only wrapper: applies auto-free to the in-memory `devices` array
-  // so the optimistic UI (elapsed timers, free/in-use state) stays correct
-  // between remote syncs. Persisting the result now always goes through
-  // autoFreeSaveTransaction() instead of a raw save() - see below.
+  // Local-only wrapper: applies auto-release to the in-memory `devices`
+  // array so the optimistic UI updates immediately between remote syncs.
+  // Persisting the result always goes through autoFreeSaveTransaction()
+  // below, never a raw full-array save().
   function applyAutoFree(){
     return applyAutoFreeTo(devices);
+  }
+
+  // Applies the midnight auto-release rule against a FRESHLY re-read remote
+  // copy of the devices array inside a transaction, then writes only that
+  // merged result back - exactly the same pattern as commitDeviceChange()
+  // uses for a single device, just applied to every device at once. This
+  // re-read-before-write is what keeps this safe: a tab whose local copy is
+  // slightly behind (a missed snapshot, a backgrounded tab, a slow network,
+  // or a power cut) can never silently overwrite other tabs' meanwhile-made
+  // changes with its own stale snapshot, because it always merges onto the
+  // latest server copy instead of blindly replacing it.
+  async function autoFreeSaveTransaction(){
+    setSync('saving', 'Saving');
+    var maxAttempts = 3;
+    for(var attempt = 1; attempt <= maxAttempts; attempt++){
+      try{
+        await runTransaction(db, async function(tx){
+          var snap = await tx.get(deviceDocRef);
+          var remoteDevices = (snap.exists() && snap.data() && snap.data().devices) ? snap.data().devices.slice() : devices.slice();
+          applyAutoFreeTo(remoteDevices);
+          tx.set(deviceDocRef, { devices: remoteDevices });
+        });
+        setSync('ok', 'Synced');
+        try{ localStorage.removeItem('devices_local_backup'); }catch(e){}
+        return;
+      }catch(e){
+        console.error('Firestore auto-free transaction error', e);
+        if(attempt < maxAttempts){
+          await new Promise(function(r){ setTimeout(r, 500 * attempt); });
+        }else{
+          setSync('error', 'Sync failed');
+        }
+      }
+    }
   }
 
   var SEED_DEVICES = [
@@ -551,7 +583,7 @@
     var added = false;
     SEED_DEVICES.forEach(function(sd){
       if(existingNames.indexOf(sd.name.trim().toLowerCase()) === -1){
-        devices.push({ id: uid(), name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', usedBy: '', lastUsedBy: '', usedSince: null, totalUsedMs: 0, lastDurationMs: 0, handoffRequestedBy: '', updatedAt: Date.now() });
+        devices.push({ id: uid(), name: sd.name, platform: sd.platform, os: sd.os, tag: '', status: 'free', usedBy: '', lastUsedBy: '', usedSince: null, lastDurationMs: 0, handoffRequestedBy: '', updatedAt: Date.now() });
         existingNames.push(sd.name.trim().toLowerCase());
         added = true;
       }
@@ -573,10 +605,6 @@
       setSync('ok', 'Synced');
       hasLoadedOnce = true;
       try{ localStorage.removeItem('devices_local_backup'); }catch(e){}
-      // FIX: use the transactional auto-free save (re-reads fresh before
-      // writing) instead of save(), which would push this tab's possibly
-      // stale in-memory `devices` array as a full overwrite and could wipe
-      // out adds/edits/removals other tabs made in the meantime.
       if(autoFreed) autoFreeSaveTransaction();
     }else{
       devices = [];
@@ -593,16 +621,15 @@
     }
   });
 
-  // Firestore's listener only fires on remote changes, so a tab left open
-  // across 10 PM would never see the cutoff. This local tick catches that,
-  // and also keeps the live "in use for Xh Ym" readout ticking. It only
-  // ever mutates existing devices' status fields (via applyAutoFree) -
-  // it never seeds, adds, or removes devices from the list.
+  // Keeps the live "in use for Xh Ym" readout ticking for every open tab,
+  // and catches the midnight cutoff for a tab that's been left open across
+  // 00:00 (Firestore's listener only fires on remote changes, so it alone
+  // wouldn't notice the clock crossing midnight). Any resulting change is
+  // persisted through the same re-read-before-write transaction as a manual
+  // release - never a raw overwrite of this tab's local snapshot.
   setInterval(function(){
     var changed = applyAutoFree();
     render();
-    // FIX: same reasoning as above - go through the transactional save so
-    // a tab with a stale local copy can't clobber other tabs' changes.
     if(changed) autoFreeSaveTransaction();
   }, 30000);
 
@@ -638,11 +665,14 @@
 
   // Applies a single-device mutation against the LATEST remote copy of that
   // device inside a Firestore transaction, then writes the merged array back.
-  // This avoids the old bug where two people toggling different devices at
-  // nearly the same time could have the second setDoc() silently overwrite
-  // the first person's change (since both were writing a full stale snapshot
-  // of the whole `devices` array). The transaction re-reads before writing,
-  // so only the targeted device's fields are actually changed.
+  // This avoids two people toggling different devices at nearly the same
+  // time having the second write silently overwrite the first person's
+  // change (since both would otherwise be writing a full stale snapshot of
+  // the whole `devices` array). The transaction re-reads before writing, so
+  // only the targeted device's fields are actually changed. This is also
+  // what keeps a claimed/in-use device from getting lost if the browser or
+  // the power drops mid-save: the write is all-or-nothing against the
+  // latest server copy, never a blind overwrite of possibly-stale local state.
   async function commitDeviceChange(id, mutateFn){
     var localDev = devices.find(function(x){ return x.id === id; });
     if(localDev){ mutateFn(localDev); render(); }
@@ -679,48 +709,9 @@
     }
   }
 
-  // FIX (new): applies the 10PM auto-free/reset rules against a FRESHLY
-  // re-read remote copy of the devices array inside a transaction, then
-  // writes only that merged result back - exactly the same pattern as
-  // commitDeviceChange() above, just applied to every device instead of
-  // one. This replaces the old behaviour where the periodic auto-free tick
-  // called save(), which did a raw setDoc() of whatever was sitting in this
-  // tab's local `devices` array. That was the actual cause of devices
-  // reappearing after deletion, edits getting reverted, and recently
-  // added/updated devices vanishing: any tab whose local copy was even
-  // slightly behind (a missed snapshot, a backgrounded tab, a slow network)
-  // would, on its next 30s tick, silently overwrite everyone else's
-  // meanwhile-made changes with its own stale snapshot. Re-reading inside a
-  // transaction before writing closes that race.
-  async function autoFreeSaveTransaction(){
-    setSync('saving', 'Saving');
-    var maxAttempts = 3;
-    for(var attempt = 1; attempt <= maxAttempts; attempt++){
-      try{
-        await runTransaction(db, async function(tx){
-          var snap = await tx.get(deviceDocRef);
-          var remoteDevices = (snap.exists() && snap.data() && snap.data().devices) ? snap.data().devices.slice() : devices.slice();
-          applyAutoFreeTo(remoteDevices);
-          tx.set(deviceDocRef, { devices: remoteDevices });
-        });
-        setSync('ok', 'Synced');
-        try{ localStorage.removeItem('devices_local_backup'); }catch(e){}
-        return;
-      }catch(e){
-        console.error('Firestore auto-free transaction error', e);
-        if(attempt < maxAttempts){
-          await new Promise(function(r){ setTimeout(r, 500 * attempt); });
-        }else{
-          setSync('error', 'Sync failed');
-        }
-      }
-    }
-  }
-
   function mutateMarkFree(dev){
     var now = Date.now();
     var elapsed = dev.usedSince ? (now - dev.usedSince) : 0;
-    addToDailyTotal(dev, elapsed, getPeriodEnd(now));
     dev.lastDurationMs = elapsed;
     dev.lastUsedBy = dev.usedBy || dev.lastUsedBy || '';
     dev.status = 'free';
@@ -744,22 +735,63 @@
     dev.updatedAt = Date.now();
   }
 
-  function updateStats(){
-    var total = devices.length;
-    var free = devices.filter(function(d){return d.status==='free'}).length;
-    var use = devices.filter(function(d){return d.status==='use'}).length;
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statFree').textContent = free;
-    document.getElementById('statUse').textContent = use;
-    document.getElementById('pillFree').classList.toggle('active', statusFilter === 'free');
-    document.getElementById('pillUse').classList.toggle('active', statusFilter === 'use');
-    document.getElementById('pillTotal').classList.toggle('active', statusFilter === 'all');
-  }
-
   // Is the current local user the one holding this device?
   function isMine(d){
     if(!currentUser || !d.usedBy) return false;
     return d.usedBy.trim().toLowerCase() === currentUser.trim().toLowerCase();
+  }
+
+  function mineInUseIds(){
+    return devices.filter(function(d){ return d.status === 'use' && isMine(d); }).map(function(d){ return d.id; });
+  }
+
+  // Releases every device currently checked out under the local user's name,
+  // one transactional commit per device (each goes through the same
+  // re-read-then-write path as a single release, so a slow network or a
+  // partial failure can't corrupt other people's devices).
+  async function releaseAllMine(){
+    if(!currentUser){
+      openNameModal('identity-required', null);
+      return;
+    }
+    var ids = mineInUseIds();
+    if(!ids.length) return;
+    var btn1 = document.getElementById('releaseAllBtn');
+    var btn2 = document.getElementById('settingsReleaseAll');
+    if(btn1) btn1.disabled = true;
+    if(btn2) btn2.disabled = true;
+    for(var i = 0; i < ids.length; i++){
+      await commitDeviceChange(ids[i], mutateMarkFree);
+    }
+  }
+
+  function updateReleaseAllButtons(){
+    var count = mineInUseIds().length;
+    var btn1 = document.getElementById('releaseAllBtn');
+    var btn2 = document.getElementById('settingsReleaseAll');
+    var labelEl = document.getElementById('releaseAllBtnLabel');
+    if(labelEl) labelEl.textContent = count > 0 ? ('Release all mine (' + count + ')') : 'Release all mine';
+    if(btn1) btn1.disabled = count === 0;
+    if(btn2){
+      btn2.disabled = count === 0;
+      btn2.textContent = count > 0 ? ('Release all (' + count + ')') : 'Release all';
+    }
+  }
+
+  function updateStats(){
+    var total = devices.length;
+    var free = devices.filter(function(d){return d.status==='free'}).length;
+    var use = devices.filter(function(d){return d.status==='use'}).length;
+    var mine = devices.filter(function(d){return d.status==='use' && isMine(d);}).length;
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statFree').textContent = free;
+    document.getElementById('statUse').textContent = use;
+    document.getElementById('statMine').textContent = mine;
+    document.getElementById('pillFree').classList.toggle('active', statusFilter === 'free');
+    document.getElementById('pillUse').classList.toggle('active', statusFilter === 'use');
+    document.getElementById('pillMine').classList.toggle('active', statusFilter === 'mine');
+    document.getElementById('pillTotal').classList.toggle('active', statusFilter === 'all');
+    updateReleaseAllButtons();
   }
 
   function usageLinesHtml(d){
@@ -777,9 +809,6 @@
       lines += '<span class="usage-line"><i class="ti ti-history" aria-hidden="true"></i>Last: ' + esc(d.lastUsedBy) + esc(durStr) + '</span>';
     }else{
       lines += '<span class="empty-note">No usage yet</span>';
-    }
-    if(d.totalUsedMs){
-      lines += '<span class="total-used">Today ' + formatDuration(d.totalUsedMs) + '</span>';
     }
     return lines;
   }
@@ -802,12 +831,13 @@
 
   function cardHtml(d){
     var isFree = d.status === 'free';
+    var mine = !isFree && isMine(d);
     var act = actionSpec(d);
     return '' +
-      '<div class="card ' + (isFree?'is-free':'is-use') + '" data-id="' + d.id + '">' +
+      '<div class="card ' + (isFree?'is-free':'is-use') + (mine?' is-mine':'') + '" data-id="' + d.id + '">' +
         '<div class="card-row1">' +
           '<div class="status-pill ' + (isFree?'free':'use') + '"><span class="dot ' + (isFree?'free':'use') + '"></span>' + (isFree?'Free':'In use') + '</div>' +
-          (d.tag ? '<span class="tag-pill">' + esc(d.tag) + '</span>' : '') +
+          (mine ? '<span class="mine-pill">Mine</span>' : (d.tag ? '<span class="tag-pill">' + esc(d.tag) + '</span>' : '')) +
         '</div>' +
         '<div class="card-row2">' +
           '<span class="device-name">' + esc(d.name) + '</span>' +
@@ -843,7 +873,11 @@
 
   function filteredList(){
     return devices.filter(function(d){
-      if(statusFilter !== 'all' && d.status !== statusFilter) return false;
+      if(statusFilter === 'mine'){
+        if(!isMine(d)) return false;
+      }else if(statusFilter !== 'all' && d.status !== statusFilter){
+        return false;
+      }
       if(platformFilter === 'Other'){
         if(d.platform === 'Android' || d.platform === 'iOS') return false;
       }else if(platformFilter !== 'all' && d.platform !== platformFilter){
@@ -851,7 +885,10 @@
       }
       if(query){
         var q = query.toLowerCase();
-        var hay = (d.name + ' ' + (d.platform||'') + ' ' + (d.os||'') + ' ' + (d.tag||'')).toLowerCase();
+        // Includes usedBy so searching a teammate's name surfaces only the
+        // device(s) they currently hold - free devices have an empty
+        // usedBy, so a name search naturally never matches them.
+        var hay = (d.name + ' ' + (d.platform||'') + ' ' + (d.os||'') + ' ' + (d.tag||'') + ' ' + (d.usedBy||'')).toLowerCase();
         if(hay.indexOf(q) === -1) return false;
       }
       return true;
@@ -916,6 +953,13 @@
     }
   });
 
+  document.getElementById('releaseAllBtn').addEventListener('click', function(){
+    releaseAllMine();
+  });
+  document.getElementById('settingsReleaseAll').addEventListener('click', function(){
+    releaseAllMine();
+  });
+
   // ---------- Name modal (reused for claiming a device, requesting a
   // handoff, and setting your local identity) ----------
   var nameModal = document.getElementById('nameModal');
@@ -975,6 +1019,9 @@
       return;
     }
     setIdentity(name);
+    // Re-render so anything keyed off `currentUser` - action buttons, the
+    // Mine filter/count, the release-all buttons - updates immediately.
+    render();
     if(pendingMode === 'claim' && pendingId){
       commitDeviceChange(pendingId, function(d){ mutateMarkUse(d, name); });
     }else if(pendingMode === 'handoff' && pendingId){
