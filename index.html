@@ -8,7 +8,7 @@
 </head>
 <body style="margin:0;background:#14171a;" id="pageBody">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
   :root{
@@ -203,13 +203,41 @@
   #dmd .device-name{font-size:16px;font-weight:600;letter-spacing:-.005em;line-height:1.3}
   #dmd .os-tag{font-size:11px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;flex-shrink:0;white-space:nowrap}
 
-  #dmd .card-row3{font-size:12px;color:var(--text-dim);line-height:1.5;display:flex;flex-direction:column;justify-content:center;gap:3px}
+  #dmd .card-row3{font-size:12px;color:var(--text-dim);line-height:1.5;display:flex;flex-direction:column;justify-content:center;gap:6px}
   #dmd .card-row3 .usage-line{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-  #dmd .card-row3 .usage-line.current{color:var(--use)}
   #dmd .card-row3 i{font-size:13px;color:var(--text-faint)}
-  #dmd .card-row3 .elapsed{color:var(--text-faint);font-family:'JetBrains Mono',monospace;font-size:11px}
-  #dmd .card-row3 .handoff-note{color:var(--accent);font-size:11px;display:flex;align-items:center;gap:5px}
+  #dmd .card-row3 .elapsed{color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11.5px}
   #dmd .card-row3 .empty-note{color:var(--text-faint)}
+
+  /* Current holder: the name is the most prominent thing on an in-use card */
+  #dmd .card-row3 .holder{
+    display:flex;flex-direction:column;gap:3px;
+    background:var(--use-dim);
+    border:1px solid rgba(224,166,63,.4);border-left:4px solid var(--use);
+    border-radius:8px;padding:9px 11px;
+  }
+  #dmd .card.is-mine .card-row3 .holder{background:var(--accent-dim);border-color:var(--accent);border-left-color:var(--accent)}
+  #dmd .card-row3 .holder-name{
+    display:flex;align-items:center;gap:7px;
+    font-size:16px;font-weight:700;color:var(--text);line-height:1.25;letter-spacing:-.005em;
+    word-break:break-word;
+  }
+  #dmd .card-row3 .holder-name i{font-size:17px;color:var(--use);flex-shrink:0}
+  #dmd .card.is-mine .card-row3 .holder-name i{color:var(--accent)}
+  #dmd .card-row3 .holder-meta{font-size:12px;color:var(--text-dim);padding-left:24px}
+
+  /* Last user on a free card */
+  #dmd .card-row3 .last-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--text-dim)}
+  #dmd .card-row3 .last-line .last-name{color:var(--text);font-weight:700;font-size:13.5px}
+  #dmd .card-row3 .last-line .last-dur{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-dim)}
+
+  /* Handoff request note */
+  #dmd .card-row3 .handoff-note{
+    color:var(--accent);font-size:11.5px;display:flex;align-items:center;gap:6px;
+    background:var(--accent-dim);border-radius:6px;padding:5px 9px;line-height:1.35;
+  }
+  #dmd .card-row3 .handoff-note i{color:var(--accent);font-size:14px;flex-shrink:0}
+  #dmd .card-row3 .handoff-note b{color:var(--text);font-weight:700}
 
   #dmd .action-btn{
     width:100%;padding:10px 0;border-radius:9px;border:1px solid;font-size:13px;font-weight:600;
@@ -239,6 +267,12 @@
   #dmd table.compact tr:last-child td{border-bottom:none}
   #dmd table.compact .t-name{color:var(--text);font-weight:600}
   #dmd table.compact .t-tag{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-faint)}
+  #dmd table.compact .t-holder{
+    display:inline-block;color:var(--text);font-weight:700;font-size:13.5px;
+    background:var(--use-dim);border-left:3px solid var(--use);border-radius:5px;padding:3px 9px;
+  }
+  #dmd table.compact .t-holder.mine{background:var(--accent-dim);border-left-color:var(--accent)}
+  #dmd table.compact .t-last b{color:var(--text);font-weight:700}
   #dmd table.compact .t-action{
     padding:6px 12px;border-radius:7px;border:1px solid;font-size:12px;font-weight:600;cursor:pointer;
     font-family:'Inter',sans-serif;white-space:nowrap;
@@ -461,6 +495,10 @@
     return d.innerHTML;
   }
 
+  function sameName(a, b){
+    return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+  }
+
   function formatDuration(ms){
     if(!ms || ms <= 0) return '0 mins';
     var totalMin = Math.floor(ms / 60000);
@@ -480,10 +518,14 @@
     return cutoff.getTime();
   }
 
-  // Applies the midnight auto-release rule to an arbitrary devices array,
-  // mutating entries in place. Returns whether anything changed. Only ever
-  // edits status/usedBy/usedSince/lastUsedBy/lastDurationMs/handoffRequestedBy
-  // on EXISTING entries in the given list - never adds, removes, or
+  // Applies the midnight (00:00) auto-release rule to an arbitrary devices
+  // array, mutating entries in place. Returns whether anything changed.
+  // Every device still "in use" from before the most recent midnight goes
+  // back to Free ("Take device"), any pending handoff request is dropped,
+  // and its timer is reset to 0 - so the card reads "Last: <name> (0 mins)"
+  // rather than carrying yesterday's hours over.
+  // Only ever edits status/usedBy/usedSince/lastUsedBy/lastDurationMs/
+  // handoffRequestedBy on EXISTING entries - never adds, removes, or
   // reorders devices. Takes an explicit list (rather than always using the
   // global `devices`) so it can be applied inside a transaction against a
   // freshly re-read remote copy, see autoFreeSaveTransaction() below - the
@@ -495,8 +537,7 @@
     var changed = false;
     list.forEach(function(d){
       if(d.status === 'use' && d.usedSince && d.usedSince < cutoff){
-        var elapsed = cutoff - d.usedSince;
-        d.lastDurationMs = elapsed;
+        d.lastDurationMs = 0; // timer resets to "0 mins" at 00:00
         d.lastUsedBy = d.usedBy || d.lastUsedBy || '';
         d.status = 'free';
         d.usedBy = '';
@@ -709,14 +750,37 @@
     }
   }
 
-  function mutateMarkFree(dev){
+  // Releases a device. If someone has requested a handoff (User A asked
+  // User B for it), releasing does NOT free the device: it is assigned
+  // straight to the requester with a fresh timer, and the releaser's session
+  // is recorded as the "last" usage. With no pending request the device just
+  // goes back to Free. This runs against the freshly re-read remote copy
+  // inside the transaction, so a handoff request that arrived a second ago
+  // is never missed.
+  // `releaserName` guards against a stale click: if the device is no longer
+  // held by that person (already released, or already handed on), nothing
+  // is changed.
+  function mutateMarkFree(dev, releaserName){
+    if(dev.status !== 'use') return;
+    if(releaserName && !sameName(dev.usedBy, releaserName)) return;
+
     var now = Date.now();
     var elapsed = dev.usedSince ? (now - dev.usedSince) : 0;
+    var nextUser = (dev.handoffRequestedBy || '').trim();
+
     dev.lastDurationMs = elapsed;
     dev.lastUsedBy = dev.usedBy || dev.lastUsedBy || '';
-    dev.status = 'free';
-    dev.usedBy = '';
-    dev.usedSince = null;
+
+    if(nextUser){
+      // Handoff: requester becomes the new holder immediately.
+      dev.status = 'use';
+      dev.usedBy = nextUser;
+      dev.usedSince = now;
+    }else{
+      dev.status = 'free';
+      dev.usedBy = '';
+      dev.usedSince = null;
+    }
     dev.handoffRequestedBy = '';
     dev.updatedAt = now;
   }
@@ -731,6 +795,9 @@
   }
 
   function mutateRequestHandoff(dev, requesterName){
+    if(dev.status !== 'use') return;                    // freed in the meantime - nothing to hand off
+    if(sameName(dev.usedBy, requesterName)) return;     // can't request your own device
+    if(dev.handoffRequestedBy) return;                  // someone is already next in line
     dev.handoffRequestedBy = requesterName;
     dev.updatedAt = Date.now();
   }
@@ -738,7 +805,7 @@
   // Is the current local user the one holding this device?
   function isMine(d){
     if(!currentUser || !d.usedBy) return false;
-    return d.usedBy.trim().toLowerCase() === currentUser.trim().toLowerCase();
+    return sameName(d.usedBy, currentUser);
   }
 
   function mineInUseIds(){
@@ -748,7 +815,8 @@
   // Releases every device currently checked out under the local user's name,
   // one transactional commit per device (each goes through the same
   // re-read-then-write path as a single release, so a slow network or a
-  // partial failure can't corrupt other people's devices).
+  // partial failure can't corrupt other people's devices). Devices with a
+  // pending handoff request pass straight to the requester.
   async function releaseAllMine(){
     if(!currentUser){
       openNameModal('identity-required', null);
@@ -756,12 +824,13 @@
     }
     var ids = mineInUseIds();
     if(!ids.length) return;
+    var me = currentUser;
     var btn1 = document.getElementById('releaseAllBtn');
     var btn2 = document.getElementById('settingsReleaseAll');
     if(btn1) btn1.disabled = true;
     if(btn2) btn2.disabled = true;
     for(var i = 0; i < ids.length; i++){
-      await commitDeviceChange(ids[i], mutateMarkFree);
+      await commitDeviceChange(ids[i], function(d){ mutateMarkFree(d, me); });
     }
   }
 
@@ -798,15 +867,27 @@
     var isFree = d.status === 'free';
     var lines = '';
     if(!isFree && d.usedBy){
-      var sinceStr = d.usedSince ? ' since ' + formatTime(d.usedSince) : '';
-      var elapsedStr = d.usedSince ? ' <span class="elapsed">(' + formatDuration(Date.now() - d.usedSince) + ')</span>' : '';
-      lines += '<span class="usage-line current"><i class="ti ti-user" aria-hidden="true"></i>' + esc(d.usedBy) + esc(sinceStr) + elapsedStr + '</span>';
+      var sinceHtml = '';
+      if(d.usedSince){
+        sinceHtml = '<div class="holder-meta">since ' + esc(formatTime(d.usedSince)) +
+          ' <span class="elapsed">(' + formatDuration(Date.now() - d.usedSince) + ')</span></div>';
+      }
+      lines += '<div class="holder">' +
+        '<div class="holder-name"><i class="ti ti-user" aria-hidden="true"></i><span>' + esc(d.usedBy) + '</span></div>' +
+        sinceHtml +
+      '</div>';
       if(d.handoffRequestedBy){
-        lines += '<span class="handoff-note"><i class="ti ti-arrows-exchange" aria-hidden="true"></i>Handoff requested by ' + esc(d.handoffRequestedBy) + '</span>';
+        var reqIsMe = currentUser && sameName(d.handoffRequestedBy, currentUser);
+        lines += '<span class="handoff-note"><i class="ti ti-arrows-exchange" aria-hidden="true"></i>' +
+          (reqIsMe
+            ? '<span>You\u2019re next \u2013 it will be assigned to you when <b>' + esc(d.usedBy) + '</b> releases</span>'
+            : '<span>Handoff requested by <b>' + esc(d.handoffRequestedBy) + '</b></span>') +
+        '</span>';
       }
     }else if(isFree && d.lastUsedBy){
-      var durStr = d.lastDurationMs ? ' (' + formatDuration(d.lastDurationMs) + ')' : '';
-      lines += '<span class="usage-line"><i class="ti ti-history" aria-hidden="true"></i>Last: ' + esc(d.lastUsedBy) + esc(durStr) + '</span>';
+      lines += '<span class="last-line"><i class="ti ti-history" aria-hidden="true"></i>Last: ' +
+        '<span class="last-name">' + esc(d.lastUsedBy) + '</span>' +
+        '<span class="last-dur">(' + formatDuration(d.lastDurationMs || 0) + ')</span></span>';
     }else{
       lines += '<span class="empty-note">No usage yet</span>';
     }
@@ -819,11 +900,15 @@
       return { kind: 'take', label: 'Take device', icon: 'ti-plug-connected' };
     }
     if(isMine(d)){
-      var label = d.handoffRequestedBy ? 'Release device (requested)' : 'Release device';
-      return { kind: 'release', label: label, icon: 'ti-plug-x' };
+      var label = d.handoffRequestedBy ? ('Release \u00B7 hand to ' + d.handoffRequestedBy) : 'Release device';
+      return { kind: 'release', label: label, icon: d.handoffRequestedBy ? 'ti-arrows-exchange' : 'ti-plug-x' };
     }
-    if(d.handoffRequestedBy && currentUser && d.handoffRequestedBy.trim().toLowerCase() === currentUser.trim().toLowerCase()){
-      return { kind: 'locked', label: 'Handoff requested', icon: 'ti-clock' };
+    if(d.handoffRequestedBy){
+      if(currentUser && sameName(d.handoffRequestedBy, currentUser)){
+        return { kind: 'locked', label: 'Handoff requested', icon: 'ti-clock' };
+      }
+      // Someone else is already next in line - don't let a third person overwrite their request.
+      return { kind: 'locked', label: 'Next: ' + d.handoffRequestedBy, icon: 'ti-clock' };
     }
     var holder = d.usedBy || 'In use';
     return { kind: 'handoff', label: holder + ' \u00B7 In-Use', icon: 'ti-arrows-exchange' };
@@ -844,7 +929,7 @@
           '<span class="os-tag">' + esc(d.os||'') + '</span>' +
         '</div>' +
         '<div class="card-row3">' + usageLinesHtml(d) + '</div>' +
-        '<button class="action-btn ' + act.kind + '" data-toggle="' + d.id + '" ' + (act.kind==='locked'?'disabled':'') + '><i class="ti ' + act.icon + '" aria-hidden="true"></i>' + act.label + '</button>' +
+        '<button class="action-btn ' + act.kind + '" data-toggle="' + d.id + '" ' + (act.kind==='locked'?'disabled':'') + '><i class="ti ' + act.icon + '" aria-hidden="true"></i>' + esc(act.label) + '</button>' +
       '</div>';
   }
 
@@ -853,10 +938,11 @@
     var act = actionSpec(d);
     var usageText = '';
     if(!isFree && d.usedBy){
-      usageText = esc(d.usedBy) + (d.usedSince ? ' &middot; ' + formatDuration(Date.now() - d.usedSince) : '');
-      if(d.handoffRequestedBy) usageText += ' &middot; handoff req.';
+      usageText = '<span class="t-holder' + (isMine(d) ? ' mine' : '') + '">' + esc(d.usedBy) + '</span>' +
+        (d.usedSince ? ' &middot; ' + formatDuration(Date.now() - d.usedSince) : '');
+      if(d.handoffRequestedBy) usageText += ' &middot; handoff: ' + esc(d.handoffRequestedBy);
     }else if(isFree && d.lastUsedBy){
-      usageText = 'Last: ' + esc(d.lastUsedBy) + (d.lastDurationMs ? ' (' + formatDuration(d.lastDurationMs) + ')' : '');
+      usageText = '<span class="t-last">Last: <b>' + esc(d.lastUsedBy) + '</b> (' + formatDuration(d.lastDurationMs || 0) + ')</span>';
     }else{
       usageText = '&mdash;';
     }
@@ -943,7 +1029,8 @@
         openNameModal('claim', id);
       }
     }else if(act.kind === 'release'){
-      commitDeviceChange(id, mutateMarkFree);
+      var me = currentUser;
+      commitDeviceChange(id, function(d){ mutateMarkFree(d, me); });
     }else if(act.kind === 'handoff'){
       if(currentUser){
         commitDeviceChange(id, function(d){ mutateRequestHandoff(d, currentUser); });
@@ -984,7 +1071,7 @@
       nameModalConfirm.textContent = 'Mark in use';
     }else if(mode === 'handoff'){
       nameModalTitle.textContent = 'Request a handoff';
-      nameModalDesc.textContent = "Let the current holder know you need this device. They'll see your name on the card.";
+      nameModalDesc.textContent = "Let the current holder know you need this device. When they release it, it will be assigned to you automatically.";
       nameModalConfirm.textContent = 'Request handoff';
     }else if(mode === 'identity-required'){
       nameModalTitle.textContent = "What's your name?";
