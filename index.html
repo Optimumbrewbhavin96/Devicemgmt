@@ -250,6 +250,9 @@
   #dmd .empty h3{color:var(--text-dim);font-size:19px;margin-bottom:6px;font-weight:600}
   #dmd .loading{text-align:center;padding:44px;color:var(--text-faint);font-size:13px}
 
+  #dmd .assign-link{background:none;border:none;color:var(--text-faint);font-size:11.5px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:2px 0 0;justify-self:center}
+  #dmd .assign-link:hover{color:var(--text-dim)}
+
   /* ---------- Table view ---------- */
   #dmd table.compact{width:100%;border-collapse:collapse;font-size:13px}
   #dmd table.compact th{
@@ -422,7 +425,8 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getFirestore, doc, onSnapshot, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { getFirestore, doc, onSnapshot, setDoc, runTransaction, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js";
 
   var firebaseConfig = {
     apiKey: "AIzaSyBlZHMI2oOQWB7mlKanbufm6oZGX21Ncro",
@@ -435,6 +439,23 @@
   var fbApp = initializeApp(firebaseConfig);
   var db = getFirestore(fbApp);
   var deviceDocRef = doc(db, "deviceBay", "main");
+
+  // ---------- Push notifications (Firebase Cloud Messaging) ----------
+  var VAPID_KEY = 'BDPP5CUAxcCVV1TwEYyrD7abmJ6hP8rRIPGjsexJE6TKsClHlFlxxdbUeUPDe3qXekEqC0Q2qd6DlRMVtexLALU';
+  var pushMessaging = null;
+  async function registerPush(){
+    try{
+      if(!currentUser || !('serviceWorker' in navigator) || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      var reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      await navigator.serviceWorker.ready;
+      if(!pushMessaging) pushMessaging = getMessaging(fbApp);
+      var token = await getToken(pushMessaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+      if(token) await setDoc(doc(db, 'fcmTokens', norm(currentUser).replace(/[\/\s]+/g, '_')), { tokens: arrayUnion(token) }, { merge: true });
+    }catch(e){ console.error('push register failed', e); }
+  }
+  function pingNotify(id, type){
+    try{ fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId: id, type: type }) }); }catch(e){}
+  }
 
   var devices = [];
   var statusFilter = 'all'; // 'all' | 'free' | 'use' | 'mine'
@@ -554,8 +575,6 @@
   }
 
   // ---------- Notifications: tab title + favicon flash ----------
-  // Always on, no permission prompt, works whenever this tab is open anywhere
-  // (backgrounded or on another tab). Clears itself as soon as you look back.
   var toastHost = document.getElementById('toastHost');
   var TOAST_ICONS = { info: 'arrows-exchange', ok: 'circle-check', warn: 'alert-triangle' };
 
@@ -647,18 +666,20 @@
   function tabIsActive(){
     try{ return !document.hidden && document.hasFocus(); }catch(e){ return !document.hidden; }
   }
-  document.addEventListener('visibilitychange', function(){ if(tabIsActive()) clearUnread(); });
-  window.addEventListener('focus', function(){ if(tabIsActive()) clearUnread(); });
+  function announcePending(){
+    if(!currentUser) return;
+    var me = norm(currentUser);
+    devices.forEach(function(d){
+      if(d.status === 'use' && norm(d.usedBy) === me && d.handoffRequestedBy && norm(d.handoffRequestedBy) !== me){
+        showToast('Handoff request waiting', d.handoffRequestedBy + ' is waiting for ' + d.name + '. Release it when you are done.', 'info');
+      }
+    });
+  }
+  document.addEventListener('visibilitychange', function(){ if(tabIsActive()){ clearUnread(); announcePending(); } });
+  window.addEventListener('focus', function(){ if(tabIsActive()){ clearUnread(); announcePending(); } });
 
   // ---- Desktop (system) notifications ----
-  // Real OS-level pop-ups with the device name + who's involved as the body text.
-  // Where they appear on screen is controlled by the operating system, not this
-  // page - typically bottom-right on Windows (Action Center style), top-right on
-  // macOS. Requires the person to grant the browser's notification permission once.
   function notifySupported(){ return typeof window.Notification !== 'undefined'; }
-  // No localStorage caching here on purpose: an old cached "off" would silently
-  // override a real, later-granted browser permission on every reload. The
-  // toggle always reflects the live Notification.permission instead.
   var notifyPref = notifySupported() && Notification.permission === 'granted';
   function desktopNotifyActive(){
     return notifyPref && notifySupported() && Notification.permission === 'granted';
@@ -677,7 +698,6 @@
     }
     if(sw) sw.checked = on;
   }
-  // Must run from a user gesture (click/toggle) so the browser allows the permission prompt.
   function setDesktopNotifications(on){
     if(!on){ notifyPref = false; syncNotifyUI(); return; }
     if(!notifySupported()){
@@ -693,6 +713,7 @@
       syncNotifyUI();
       if(notifyPref){
         fireDesktopNotification('Notifications on', "You'll get a desktop pop-up when someone requests your device or hands one to you.", 'notify-on');
+        registerPush();
       }else{
         showToast('Not allowed', "Desktop pop-ups need to be allowed in your browser to work. The tab-title/icon flash still will.", 'warn');
       }
@@ -701,28 +722,18 @@
   function fireDesktopNotification(title, body, tag){
     if(!desktopNotifyActive()) return false;
     try{
-      var n = new Notification(title, { body: body, tag: tag, icon: baseFaviconHref });
+      var n = new Notification(title, { body: body, tag: tag, icon: baseFaviconHref, requireInteraction: /^req-/.test(tag || '') });
       n.onclick = function(){ try{ window.focus(); }catch(e){} n.close(); };
       return true;
     }catch(e){ return false; }
   }
 
-  // Central alert function: always tries a real desktop pop-up (if enabled/allowed);
-  // also shows an in-page toast if you're looking at this tab right now, or
-  // flashes the tab title/icon if you're backgrounded or on another tab.
   function notifyUser(title, body, tag, kind){
     fireDesktopNotification(title, body, tag);
-    if(tabIsActive()){
-      showToast(title, body, kind || 'info');
-    }else{
-      pushUnread({ title: title, body: body, kind: kind || 'info' });
-    }
+    if(!document.hidden){ showToast(title, body, kind || 'info'); }
+    if(!tabIsActive()){ pushUnread({ title: title, body: body, kind: kind || 'info' }); }
   }
 
-  // Compares each new remote snapshot with the previous one to work out what
-  // changed for THIS user:
-  //  - someone just requested a device I'm holding     -> notify me (holder)
-  //  - a device I requested was just assigned to me    -> notify me (requester)
   var prevState = null; // id -> { usedBy, req }
   function detectHandoffEvents(list){
     var first = (prevState === null);
@@ -736,7 +747,6 @@
         var p = prevState ? prevState[d.id] : null;
         var holderIsMe = d.status === 'use' && norm(d.usedBy) === me;
 
-        // Someone is asking me for this device
         if(holderIsMe && d.handoffRequestedBy && norm(d.handoffRequestedBy) !== me){
           var changed = !p || norm(p.req) !== norm(d.handoffRequestedBy) || norm(p.usedBy) !== me;
           if(first){
@@ -750,7 +760,6 @@
           }
         }
 
-        // The device I asked for has been handed to me
         if(!first && p && norm(p.req) === me && holderIsMe && norm(p.usedBy) !== me){
           notifyUser(
             'Handoff request accepted',
@@ -764,25 +773,19 @@
   }
 
   // ---------- Midnight auto-release ----------
-  // Most recent local midnight (00:00) at or before `now`.
   function getMostRecentMidnight(now){
     var cutoff = new Date(now);
     cutoff.setHours(0, 0, 0, 0);
     return cutoff.getTime();
   }
 
-  // Applies the midnight rule to a devices array (mutating existing entries only):
-  // every device that has been "in use" since before 00:00 is released, its timer
-  // is reset to 0 mins and any pending handoff request is cleared.
-  // Takes an explicit list so it can run inside a transaction against a freshly
-  // re-read remote copy (never a blind overwrite with a stale local snapshot).
   function applyAutoFreeTo(list){
     var now = Date.now();
     var cutoff = getMostRecentMidnight(now);
     var changed = false;
     list.forEach(function(d){
       if(d.status === 'use' && d.usedSince && d.usedSince < cutoff){
-        d.lastDurationMs = 0;                       // timer back to "0 mins"
+        d.lastDurationMs = 0;
         d.lastUsedBy = d.usedBy || d.lastUsedBy || '';
         d.status = 'free';
         d.usedBy = '';
@@ -795,7 +798,6 @@
     return changed;
   }
 
-  // Local-only wrapper so the optimistic UI updates immediately.
   function applyAutoFree(){
     return applyAutoFreeTo(devices);
   }
@@ -807,7 +809,8 @@
       try{
         await runTransaction(db, async function(tx){
           var snap = await tx.get(deviceDocRef);
-          var remoteDevices = (snap.exists() && snap.data() && snap.data().devices) ? snap.data().devices.slice() : devices.slice();
+          if(!(snap.exists() && snap.data() && snap.data().devices)) return;
+          var remoteDevices = snap.data().devices.slice();
           applyAutoFreeTo(remoteDevices);
           tx.set(deviceDocRef, { devices: remoteDevices });
         });
@@ -847,11 +850,6 @@
     { name: 'iPad Silver', platform: 'iOS', os: 'OS-26' }
   ];
 
-  // NOTE: this only ever runs when the Firestore document does not exist yet
-  // (see onSnapshot below) - i.e. once, the very first time the board is
-  // created. It must NEVER run against an already-existing snapshot, or any
-  // device intentionally deleted from the shared list would get silently
-  // re-added (as a brand new object, wiping its usage history back to 0).
   function ensureSeeded(){
     var existingNames = devices.map(function(d){ return d.name.trim().toLowerCase(); });
     var added = false;
@@ -865,11 +863,20 @@
     return added;
   }
 
+  async function seedIfMissing(){
+    try{
+      await runTransaction(db, async function(tx){
+        var s = await tx.get(deviceDocRef);
+        if(s.exists()) return;
+        devices = []; ensureSeeded();
+        tx.set(deviceDocRef, { devices: devices.slice() });
+      });
+    }catch(e){ console.error('seed failed', e); setSync('error', 'Sync failed'); }
+  }
+
   onSnapshot(deviceDocRef, function(snap){
     if(snap.exists()){
       var incoming = (snap.data() && snap.data().devices) ? snap.data().devices : [];
-      // Inspect the raw remote data BEFORE local midnight auto-release touches it,
-      // so notifications reflect what other people actually did.
       detectHandoffEvents(incoming);
       devices = incoming;
       var autoFreed = applyAutoFree();
@@ -878,12 +885,10 @@
       hasLoadedOnce = true;
       try{ localStorage.removeItem('devices_local_backup'); }catch(e){}
       if(autoFreed) autoFreeSaveTransaction();
+    }else if(snap.metadata.fromCache){
+      setSync('error', 'Offline - waiting for connection');
     }else{
-      devices = [];
-      ensureSeeded();
-      render();
-      hasLoadedOnce = true;
-      save();
+      seedIfMissing();
     }
   }, function(err){
     console.error('Firestore listen error', err);
@@ -893,16 +898,12 @@
     }
   });
 
-  // Keeps the live "in use for Xh Ym" readout ticking, and acts as a safety net
-  // for the midnight release (e.g. after a laptop wakes from sleep).
   setInterval(function(){
     var changed = applyAutoFree();
     render();
     if(changed) autoFreeSaveTransaction();
   }, 30000);
 
-  // Fires right after 00:00 so every in-use device is released on time, even
-  // if the tab has been open all day.
   function scheduleMidnightReset(){
     var now = new Date();
     var next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 500);
@@ -934,7 +935,7 @@
         if(attempt < maxAttempts){
           await new Promise(function(r){ setTimeout(r, 500 * attempt); });
         }else{
-          try{ localStorage.setItem('devices_local_backup', JSON.stringify(snapshot)); }catch(e2){}
+          showToast('Change not saved', 'You appear to be offline. Reload when you are back online and try again.', 'warn');
           setSync('error', 'Sync failed');
         }
       }
@@ -942,14 +943,9 @@
   }
 
   document.getElementById('retrySync').addEventListener('click', function(){
-    save();
+    location.reload();
   });
 
-  // Applies a single-device mutation against the LATEST remote copy of that
-  // device inside a Firestore transaction, then writes the merged array back.
-  // The handoff hand-over happens inside mutateMarkFree, so it is decided
-  // against the freshest server copy: if User A's request landed a moment
-  // before User B released, B's release still hands the device to A.
   async function commitDeviceChange(id, mutateFn){
     var localDev = devices.find(function(x){ return x.id === id; });
     if(localDev){ mutateFn(localDev); render(); }
@@ -960,15 +956,13 @@
       try{
         await runTransaction(db, async function(tx){
           var snap = await tx.get(deviceDocRef);
-          var remoteDevices = (snap.exists() && snap.data() && snap.data().devices) ? snap.data().devices.slice() : devices.slice();
+          if(!(snap.exists() && snap.data() && snap.data().devices)) return;
+          var remoteDevices = snap.data().devices.slice();
           var idx = remoteDevices.findIndex(function(x){ return x.id === id; });
-          if(idx === -1){
-            remoteDevices = devices.slice();
-          }else{
-            var fresh = Object.assign({}, remoteDevices[idx]);
-            mutateFn(fresh);
-            remoteDevices[idx] = fresh;
-          }
+          if(idx === -1) return;
+          var fresh = Object.assign({}, remoteDevices[idx]);
+          mutateFn(fresh);
+          remoteDevices[idx] = fresh;
           tx.set(deviceDocRef, { devices: remoteDevices });
         });
         setSync('ok', 'Synced');
@@ -979,17 +973,15 @@
         if(attempt < maxAttempts){
           await new Promise(function(r){ setTimeout(r, 500 * attempt); });
         }else{
-          try{ localStorage.setItem('devices_local_backup', JSON.stringify(devices)); }catch(e2){}
+          showToast('Change not saved', 'You appear to be offline. Reload when you are back online and try again.', 'warn');
           setSync('error', 'Sync failed');
         }
       }
     }
   }
 
-  // Release a device. If someone has requested a handoff, the device is NOT
-  // freed - it is assigned straight to the person who asked (timer starts at 0 mins).
   function mutateMarkFree(dev){
-    if(dev.status !== 'use') return; // already free (e.g. released from another tab)
+    if(dev.status !== 'use') return;
     var now = Date.now();
     var requester = String(dev.handoffRequestedBy || '').trim();
     dev.lastDurationMs = dev.usedSince ? (now - dev.usedSince) : 0;
@@ -1017,14 +1009,12 @@
   }
 
   function mutateRequestHandoff(dev, requesterName){
-    // One pending request per device: never overwrite someone else's request.
     if(dev.status !== 'use') return;
     if(dev.handoffRequestedBy && norm(dev.handoffRequestedBy) !== norm(requesterName)) return;
     dev.handoffRequestedBy = requesterName;
     dev.updatedAt = Date.now();
   }
 
-  // Is the current local user the one holding this device?
   function isMine(d){
     if(!currentUser || !d.usedBy) return false;
     return norm(d.usedBy) === norm(currentUser);
@@ -1034,9 +1024,6 @@
     return devices.filter(function(d){ return d.status === 'use' && isMine(d); }).map(function(d){ return d.id; });
   }
 
-  // Releases every device currently checked out under the local user's name,
-  // one transactional commit per device. Devices with a pending handoff request
-  // go to the requester; the rest become free.
   async function releaseAllMine(){
     if(!currentUser){
       openNameModal('identity-required', null);
@@ -1049,7 +1036,9 @@
     if(btn1) btn1.disabled = true;
     if(btn2) btn2.disabled = true;
     for(var i = 0; i < ids.length; i++){
+      var hadReq2 = devices.some(function(x){ return x.id === ids[i] && x.handoffRequestedBy; });
       await commitDeviceChange(ids[i], mutateMarkFree);
+      if(hadReq2) pingNotify(ids[i], 'accepted');
     }
   }
 
@@ -1102,7 +1091,6 @@
     return lines;
   }
 
-  // Decides the action button for a device: take / release / handoff / locked.
   function actionSpec(d){
     if(d.status === 'free'){
       return { kind: 'take', label: 'Take device', icon: 'plug-connected' };
@@ -1137,6 +1125,7 @@
         '</div>' +
         '<div class="card-row3">' + usageLinesHtml(d) + '</div>' +
         '<button class="action-btn ' + act.kind + '" data-toggle="' + d.id + '" ' + (act.kind==='locked'?'disabled':'') + '>' + icon(act.icon) + esc(act.label) + '</button>' +
+        (isFree ? '<button class="assign-link" type="button" data-assign="' + d.id + '">Assign to someone</button>' : '') +
       '</div>';
   }
 
@@ -1179,9 +1168,6 @@
       }
       if(query){
         var q = query.toLowerCase();
-        // Includes usedBy so searching a teammate's name surfaces only the
-        // device(s) they currently hold - free devices have an empty
-        // usedBy, so a name search naturally never matches them.
         var hay = (d.name + ' ' + (d.platform||'') + ' ' + (d.os||'') + ' ' + (d.tag||'') + ' ' + (d.usedBy||'')).toLowerCase();
         if(hay.indexOf(q) === -1) return false;
       }
@@ -1202,8 +1188,6 @@
       return;
     }
 
-    // Android devices first, then iOS, then anything else - stable grouping
-    // without visible section headers (platform tabs already provide that context).
     var order = { Android: 0, iOS: 1 };
     var ordered = list.slice().sort(function(a, b){
       var oa = order.hasOwnProperty(a.platform) ? order[a.platform] : 2;
@@ -1222,8 +1206,10 @@
     }
   }
 
-  // ---------- Action handling (take / release / handoff) ----------
+  // ---------- Action handling (take / release / handoff / assign) ----------
   gridWrap.addEventListener('click', function(e){
+    var assignBtn = e.target.closest('[data-assign]');
+    if(assignBtn){ openNameModal('assign', assignBtn.getAttribute('data-assign')); return; }
     var toggleId = e.target.closest('[data-toggle]');
     if(!toggleId || toggleId.hasAttribute('disabled')) return;
     var id = toggleId.getAttribute('data-toggle');
@@ -1237,10 +1223,11 @@
         openNameModal('claim', id);
       }
     }else if(act.kind === 'release'){
-      commitDeviceChange(id, mutateMarkFree);
+      var hadReq = !!dev.handoffRequestedBy;
+      commitDeviceChange(id, mutateMarkFree).then(function(){ if(hadReq) pingNotify(id, 'accepted'); });
     }else if(act.kind === 'handoff'){
       if(currentUser){
-        commitDeviceChange(id, function(d){ mutateRequestHandoff(d, currentUser); });
+        commitDeviceChange(id, function(d){ mutateRequestHandoff(d, currentUser); }).then(function(){ pingNotify(id, 'request'); });
       }else{
         openNameModal('handoff', id);
       }
@@ -1254,8 +1241,6 @@
     releaseAllMine();
   });
 
-  // ---------- Name modal (reused for claiming a device, requesting a
-  // handoff, and setting your local identity) ----------
   var nameModal = document.getElementById('nameModal');
   var settingsModal = document.getElementById('settingsModal');
   var nameModalTitle = document.getElementById('nameModalTitle');
@@ -1280,6 +1265,11 @@
       nameModalTitle.textContent = 'Request a handoff';
       nameModalDesc.textContent = "Let the current holder know you need this device. They'll be notified, and it's assigned to you as soon as they release it.";
       nameModalConfirm.textContent = 'Request handoff';
+    }else if(mode === 'assign'){
+      nameModalInput.value = '';
+      nameModalTitle.textContent = 'Assign this device to';
+      nameModalDesc.textContent = "Type the person's name exactly as they use it on the board. Use this to restore a device that was reset.";
+      nameModalConfirm.textContent = 'Assign';
     }else if(mode === 'identity-required'){
       nameModalTitle.textContent = "What's your name?";
       nameModalDesc.textContent = "Enter your name to access the device bay. It's used to track who's holding each device.";
@@ -1312,14 +1302,20 @@
       nameModalInput.focus();
       return;
     }
+    if(pendingMode === 'assign' && pendingId){
+      var assignId = pendingId;
+      commitDeviceChange(assignId, function(d){ if(d.status === 'free') mutateMarkUse(d, name); });
+      closeNameModal();
+      return;
+    }
     setIdentity(name);
-    // Re-render so anything keyed off `currentUser` - action buttons, the
-    // Mine filter/count, the release-all buttons - updates immediately.
+    registerPush();
     render();
     if(pendingMode === 'claim' && pendingId){
       commitDeviceChange(pendingId, function(d){ mutateMarkUse(d, name); });
     }else if(pendingMode === 'handoff' && pendingId){
-      commitDeviceChange(pendingId, function(d){ mutateRequestHandoff(d, name); });
+      var reqId = pendingId;
+      commitDeviceChange(reqId, function(d){ mutateRequestHandoff(d, name); }).then(function(){ pingNotify(reqId, 'request'); });
     }
     pendingMode = null;
     closeNameModal();
@@ -1392,6 +1388,7 @@
     setDesktopNotifications(!desktopNotifyActive());
   });
   syncNotifyUI();
+  registerPush();
 
   if(!currentUser){
     openNameModal('identity-required', null);
