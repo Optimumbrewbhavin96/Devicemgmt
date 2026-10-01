@@ -245,6 +245,11 @@
   #dmd .action-btn.handoff{background:transparent;border-color:var(--use);color:var(--use)}
   #dmd .action-btn.locked{background:transparent;border-color:var(--line-soft);color:var(--text-faint);cursor:default}
   #dmd .action-btn.locked:hover{filter:none}
+  #dmd .action-group{display:flex;flex-direction:column;gap:7px}
+  #dmd .action-btn.decline-handoff{background:transparent;border-color:var(--danger);color:var(--danger)}
+  #dmd .action-btn.decline-handoff:hover{filter:brightness(1.15)}
+  #dmd .action-btn.cancel-handoff{background:transparent;border-color:var(--danger);color:var(--danger)}
+  #dmd .action-btn.cancel-handoff:hover{filter:brightness(1.15)}
 
   #dmd .empty{text-align:center;padding:56px 20px;color:var(--text-faint)}
   #dmd .empty h3{color:var(--text-dim);font-size:19px;margin-bottom:6px;font-weight:600}
@@ -271,6 +276,8 @@
   #dmd table.compact .t-action.release{background:var(--free-dim);border-color:var(--free);color:var(--free)}
   #dmd table.compact .t-action.handoff{background:transparent;border-color:var(--use);color:var(--use)}
   #dmd table.compact .t-action.locked{background:transparent;border-color:var(--line-soft);color:var(--text-faint);cursor:default}
+  #dmd table.compact .t-action.cancel-handoff,
+  #dmd table.compact .t-action.decline-handoff{background:transparent;border-color:var(--danger);color:var(--danger)}
   #dmd table.compact .status-pill{white-space:nowrap}
   #dmd table.compact tr.row-mine .holder-name{background:var(--accent-dim);border-color:var(--accent)}
   #dmd table.compact tr.row-mine .holder-name .dmd-icon{color:var(--accent)}
@@ -1015,6 +1022,26 @@
     dev.updatedAt = Date.now();
   }
 
+  // Withdraws a pending handoff request. Only the person who made the
+  // request can cancel it - verified against the freshest server copy
+  // inside the transaction, not just the local snapshot.
+  function mutateCancelHandoff(dev, requesterName){
+    if(!dev.handoffRequestedBy) return;
+    if(norm(dev.handoffRequestedBy) !== norm(requesterName)) return;
+    dev.handoffRequestedBy = '';
+    dev.updatedAt = Date.now();
+  }
+
+  // Holder declines an incoming request without releasing the device.
+  // Only the current holder can decline - verified against the freshest
+  // server copy inside the transaction.
+  function mutateDeclineHandoff(dev, holderName){
+    if(!dev.handoffRequestedBy) return;
+    if(norm(dev.usedBy) !== norm(holderName)) return;
+    dev.handoffRequestedBy = '';
+    dev.updatedAt = Date.now();
+  }
+
   function isMine(d){
     if(!currentUser || !d.usedBy) return false;
     return norm(d.usedBy) === norm(currentUser);
@@ -1091,17 +1118,26 @@
     return lines;
   }
 
+  // Returns the primary action plus an optional secondary action (shown as
+  // a second, smaller button) for the current viewer looking at device d.
   function actionSpec(d){
     if(d.status === 'free'){
       return { kind: 'take', label: 'Take device', icon: 'plug-connected' };
     }
     if(isMine(d)){
-      var label = d.handoffRequestedBy ? ('Release & hand to ' + d.handoffRequestedBy) : 'Release device';
-      return { kind: 'release', label: label, icon: 'plug-x' };
+      if(d.handoffRequestedBy){
+        return {
+          kind: 'release',
+          label: 'Accept Device Request',
+          icon: 'plug-connected',
+          secondary: { kind: 'decline-handoff', label: 'Decline request', icon: 'plug-x' }
+        };
+      }
+      return { kind: 'release', label: 'Release device', icon: 'plug-x' };
     }
     if(d.handoffRequestedBy){
       if(currentUser && norm(d.handoffRequestedBy) === norm(currentUser)){
-        return { kind: 'locked', label: 'Handoff requested', icon: 'clock' };
+        return { kind: 'cancel-handoff', label: 'Cancel request', icon: 'plug-x' };
       }
       return { kind: 'locked', label: 'Requested by ' + d.handoffRequestedBy, icon: 'clock' };
     }
@@ -1124,7 +1160,10 @@
           '<span class="os-tag">' + esc(d.os||'') + '</span>' +
         '</div>' +
         '<div class="card-row3">' + usageLinesHtml(d) + '</div>' +
-        '<button class="action-btn ' + act.kind + '" data-toggle="' + d.id + '" ' + (act.kind==='locked'?'disabled':'') + '>' + icon(act.icon) + esc(act.label) + '</button>' +
+        '<div class="action-group">' +
+          '<button class="action-btn ' + act.kind + '" data-toggle="' + d.id + '" data-kind="' + act.kind + '" ' + (act.kind==='locked'?'disabled':'') + '>' + icon(act.icon) + esc(act.label) + '</button>' +
+          (act.secondary ? '<button class="action-btn ' + act.secondary.kind + '" data-toggle="' + d.id + '" data-kind="' + act.secondary.kind + '">' + icon(act.secondary.icon) + esc(act.secondary.label) + '</button>' : '') +
+        '</div>' +
         (isFree ? '<button class="assign-link" type="button" data-assign="' + d.id + '">Assign to someone</button>' : '') +
       '</div>';
   }
@@ -1150,7 +1189,9 @@
         '<td class="t-name">' + esc(d.name) + '</td>' +
         '<td>' + esc(d.platform||'') + ' &middot; ' + esc(d.os||'') + '</td>' +
         '<td>' + usageText + '</td>' +
-        '<td><button class="t-action ' + act.kind + '" data-toggle="' + d.id + '" ' + (act.kind==='locked'?'disabled':'') + '>' + esc(act.label) + '</button></td>' +
+        '<td><button class="t-action ' + act.kind + '" data-toggle="' + d.id + '" data-kind="' + act.kind + '" ' + (act.kind==='locked'?'disabled':'') + '>' + esc(act.label) + '</button>' +
+          (act.secondary ? '<button class="t-action ' + act.secondary.kind + '" data-toggle="' + d.id + '" data-kind="' + act.secondary.kind + '" style="margin-left:6px">' + esc(act.secondary.label) + '</button>' : '') +
+        '</td>' +
       '</tr>';
   }
 
@@ -1206,30 +1247,38 @@
     }
   }
 
-  // ---------- Action handling (take / release / handoff / assign) ----------
+  // ---------- Action handling (take / release / handoff / assign / cancel / decline) ----------
   gridWrap.addEventListener('click', function(e){
     var assignBtn = e.target.closest('[data-assign]');
     if(assignBtn){ openNameModal('assign', assignBtn.getAttribute('data-assign')); return; }
-    var toggleId = e.target.closest('[data-toggle]');
-    if(!toggleId || toggleId.hasAttribute('disabled')) return;
-    var id = toggleId.getAttribute('data-toggle');
+    var toggleEl = e.target.closest('[data-toggle]');
+    if(!toggleEl || toggleEl.hasAttribute('disabled')) return;
+    var id = toggleEl.getAttribute('data-toggle');
+    var kind = toggleEl.getAttribute('data-kind');
     var dev = devices.find(function(x){return x.id===id});
     if(!dev) return;
-    var act = actionSpec(dev);
-    if(act.kind === 'take'){
+    if(kind === 'take'){
       if(currentUser){
         commitDeviceChange(id, function(d){ mutateMarkUse(d, currentUser); });
       }else{
         openNameModal('claim', id);
       }
-    }else if(act.kind === 'release'){
+    }else if(kind === 'release'){
       var hadReq = !!dev.handoffRequestedBy;
       commitDeviceChange(id, mutateMarkFree).then(function(){ if(hadReq) pingNotify(id, 'accepted'); });
-    }else if(act.kind === 'handoff'){
+    }else if(kind === 'handoff'){
       if(currentUser){
         commitDeviceChange(id, function(d){ mutateRequestHandoff(d, currentUser); }).then(function(){ pingNotify(id, 'request'); });
       }else{
         openNameModal('handoff', id);
+      }
+    }else if(kind === 'cancel-handoff'){
+      if(currentUser){
+        commitDeviceChange(id, function(d){ mutateCancelHandoff(d, currentUser); });
+      }
+    }else if(kind === 'decline-handoff'){
+      if(currentUser){
+        commitDeviceChange(id, function(d){ mutateDeclineHandoff(d, currentUser); });
       }
     }
   });
